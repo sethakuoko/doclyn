@@ -13,6 +13,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import HomeViewModal from "@/components/HomeViewModal";
+import DocumentOptionsModal from "@/components/DocumentOptionsModal";
 
 interface Document {
   id: number;
@@ -74,8 +75,24 @@ const AdobeScanHomeScreen: React.FC = () => {
     console.log(`Save as JPEG button clicked for document ${docId}`);
   };
 
+  const [itemModalVisible, setItemModalVisible] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(
+    null
+  );
   const handleMoreOptionsClick = (docId: number): void => {
     console.log(`More options button clicked for document ${docId}`);
+
+    // Find the document and show modal
+    const document = documents.find((doc) => doc.id === docId);
+    if (document) {
+      setSelectedDocument(document);
+      setItemModalVisible(true);
+    }
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+    setSelectedDocument(null);
   };
 
   const handleDocumentClick = (docId: number): void => {
@@ -184,6 +201,12 @@ const AdobeScanHomeScreen: React.FC = () => {
       >
         {documents.map((doc) => renderDocumentItem(doc))}
       </ScrollView>
+
+      <DocumentOptionsModal
+        visible={itemModalVisible}
+        onClose={closeModal}
+        document={selectedDocument}
+      />
 
       {/* Bottom Action Buttons */}
       <View style={styles.bottomActions}>
