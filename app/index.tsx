@@ -1,5 +1,5 @@
 // App.tsx
-import React from "react";
+import React, { use } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ImageBackground,
   StatusBar,
   SafeAreaView,
+  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons"; // Adjust the path as necessary
@@ -15,12 +16,19 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import { ToastMessage } from "@/components/Toast";
 import Toast from "react-native-toast-message";
 import { Stack, useRouter } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
+import * as Linking from "expo-linking";
+import { useSSO } from "@clerk/clerk-expo";
+import { useUser } from "@clerk/clerk-expo";
 
 export default function App() {
+  const { startSSOFlow } = useSSO();
+
   let userID: string;
   let email: string;
   let fullname: string;
   const router = useRouter();
+  const { user, isSignedIn } = useUser();
 
   const sendLoginInfoToBackend = async () => {
     console.log("sending login info", userID, email, fullname);
@@ -58,20 +66,56 @@ export default function App() {
     }
   };
 
-  const handleGoogleSignIn = () => {
-    console.log("Sign in with Google pressed");
+  const handleGoogleSignIn = async () => {
+    try {
+      const { createdSessionId, setActive } = await startSSOFlow({
+        strategy: "oauth_google",
+        redirectUrl: Linking.createURL("clerk-callback"),
+      });
+
+      if (!createdSessionId) {
+        // User canceled the Google sign-in
+        ToastMessage("info", "Google sign-in was canceled.");
+        return;
+      }
+
+      if (createdSessionId && typeof setActive === "function") {
+        await setActive({ session: createdSessionId });
+        console.log("✅ Signed in with Google");
+      }
+
+      if (isSignedIn && user) {
+        userID = user.id;
+        email = user.primaryEmailAddress?.emailAddress ?? "";
+        fullname = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
+
+        sendLoginInfoToBackend();
+      }
+    } catch (err) {
+      ToastMessage("error", "An error occured. Please try again later");
+    }
   };
 
-  const handleFacebookSignIn = () => {
-    console.log("Sign in with Facebook pressed");
-  };
+  const handleFacebookSignIn = async () => {
+    try {
+      const { createdSessionId, setActive } = await startSSOFlow({
+        strategy: "oauth_facebook", // Facebook-specific strategy
+        redirectUrl: Linking.createURL("clerk-callback"),
+      });
 
-  const handleExistingAccount = () => {
-    console.log("Sign in or sign up pressed");
-  };
+      if (!createdSessionId) {
+        // User canceled the Google sign-in
+        ToastMessage("info", "Facebook sign-in was canceled.");
+        return;
+      }
 
-  const handleLearnMore = () => {
-    console.log("Learn more pressed");
+      if (createdSessionId && typeof setActive === "function") {
+        await setActive({ session: createdSessionId });
+        console.log("✅ Signed in with Facebook");
+      }
+    } catch (err) {
+      ToastMessage("error", "An error occured. Please try again later");
+    }
   };
 
   return (
@@ -152,27 +196,9 @@ export default function App() {
               </TouchableOpacity>
 
               {/* Existing Account Link */}
-              <TouchableOpacity
-                style={styles.existingAccountContainer}
-                onPress={() => router.navigate("/ManualSignInScreen")}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.existingAccountText}>
-                  Already have an Adobe account?
-                </Text>
-                <Text style={styles.signInLink}>Sign in or sign up.</Text>
-              </TouchableOpacity>
             </View>
 
             {/* Footer Section */}
-            <View style={styles.footerSection}>
-              <Text style={styles.privacyText}>
-                Adobe collects analytics to improve your experience.{" "}
-                <Text style={styles.learnMoreLink} onPress={handleLearnMore}>
-                  Learn more
-                </Text>
-              </Text>
-            </View>
           </View>
         </LinearGradient>
       </ImageBackground>
@@ -224,7 +250,7 @@ const styles = StyleSheet.create({
     fontWeight: "300",
   },
   signInSection: {
-    marginBottom: 40,
+    marginBottom: 100,
   },
   signInButton: {
     flexDirection: "row",
@@ -267,36 +293,5 @@ const styles = StyleSheet.create({
   },
   facebookButtonText: {
     color: "#fff",
-  },
-  existingAccountContainer: {
-    alignItems: "center",
-    marginTop: 20,
-  },
-  existingAccountText: {
-    color: "#fff",
-    fontSize: 14,
-    opacity: 0.8,
-    marginBottom: 4,
-  },
-  signInLink: {
-    color: "#fff",
-    fontSize: 14,
-    textDecorationLine: "underline",
-    opacity: 0.9,
-  },
-  footerSection: {
-    alignItems: "center",
-    paddingBottom: 20,
-  },
-  privacyText: {
-    color: "#fff",
-    fontSize: 12,
-    textAlign: "center",
-    opacity: 0.7,
-    lineHeight: 16,
-  },
-  learnMoreLink: {
-    textDecorationLine: "underline",
-    opacity: 0.9,
   },
 });
