@@ -8,9 +8,13 @@
     "scheme": "adobe",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "platforms": ["ios", "android", "web"],
     "ios": {
       "supportsTablet": true,
        "usesAppleSignIn": true
+    },
+    "extra": {
+      "CLERK_PUBLISHABLE_KEY":"pk_test_c29jaWFsLW1hcnRpbi0xMy5jbGVyay5hY2NvdW50cy5kZXYk"
     },
     "android": {
       "adaptiveIcon": {
