@@ -20,21 +20,36 @@ import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import { useSSO } from "@clerk/clerk-expo";
 import { useUser } from "@clerk/clerk-expo";
+import { useEffect } from "react";
 
 export default function App() {
   const { startSSOFlow } = useSSO();
-
-  let userID: string;
-  let email: string;
-  let fullname: string;
   const router = useRouter();
   const { user, isSignedIn } = useUser();
 
-  const sendLoginInfoToBackend = async () => {
+  useEffect(() => {
+    if (isSignedIn && user) {
+      const userID = user.id;
+      const email = user.primaryEmailAddress?.emailAddress ?? "";
+      const fullname = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
+
+      // Send to backend, store in global state, or show in UI
+      console.log("User logged in:", { userID, email, fullname });
+
+      // Example call
+      sendLoginInfoToBackend(userID, email, fullname);
+    }
+  }, [isSignedIn, user]);
+
+  const sendLoginInfoToBackend = async (
+    userID: string,
+    email: string,
+    fullname: string
+  ) => {
     console.log("sending login info", userID, email, fullname);
 
     let msg = "success";
-    if ((msg = "success")) {
+    if (msg === "success") {
       router.navigate("/HomeScreen");
     } else {
       ToastMessage("error", "An error occured. Please try again later");
@@ -50,15 +65,15 @@ export default function App() {
         ],
       });
 
-      userID = credential.user;
-      fullname = credential.fullName
+      const userID = credential.user;
+      const fullname = credential.fullName
         ? `${credential.fullName.givenName ?? ""} ${
             credential.fullName.familyName ?? ""
           }`.trim()
         : "";
-      email = credential.email ?? "";
+      const email = credential.email ?? "";
 
-      sendLoginInfoToBackend();
+      sendLoginInfoToBackend(userID, email, fullname);
 
       // Pass data to backend for logging and returning values.
     } catch (e) {
@@ -82,14 +97,6 @@ export default function App() {
       if (createdSessionId && typeof setActive === "function") {
         await setActive({ session: createdSessionId });
         console.log("✅ Signed in with Google");
-      }
-
-      if (isSignedIn && user) {
-        userID = user.id;
-        email = user.primaryEmailAddress?.emailAddress ?? "";
-        fullname = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
-
-        sendLoginInfoToBackend();
       }
     } catch (err) {
       ToastMessage("error", "An error occured. Please try again later");
