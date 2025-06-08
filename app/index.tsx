@@ -201,7 +201,16 @@ export default function App() {
                   Sign in with Facebook
                 </Text>
               </TouchableOpacity>
-
+<TouchableOpacity
+                style={[styles.signInButton, styles.facebookButton]}
+                onPress={() => router.push("/HomeScreen")}
+                activeOpacity={0.8}
+              >
+                
+                <Text style={[styles.buttonText, styles.facebookButtonText]}>
+                  Continue 
+                </Text>
+              </TouchableOpacity>
               {/* Existing Account Link */}
             </View>
 
