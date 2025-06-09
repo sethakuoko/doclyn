@@ -5,11 +5,11 @@ import {
   TouchableOpacity,
   Image,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   ScrollView,
   Alert,
 } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context'; // RECOMMENDED package
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import HomeViewModal from "@/components/HomeViewModal";
@@ -107,6 +107,7 @@ const AdobeScanHomeScreen: React.FC = () => {
 
   const handleGalleryClick = (): void => {
     console.log("Gallery button clicked");
+    router.push("/GalleryScreen");
   };
 
   const renderDocumentItem = (doc: Document) => (
@@ -149,7 +150,7 @@ const AdobeScanHomeScreen: React.FC = () => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
       <StatusBar barStyle="light-content" backgroundColor="#1a1a1a" />
 
