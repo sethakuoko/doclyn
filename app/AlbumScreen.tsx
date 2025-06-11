@@ -1,6 +1,6 @@
 // app/AlbumScreen.tsx
 import * as ImagePicker from "expo-image-picker";
-import { Image } from "react-native";
+import { Image, Platform } from "react-native";
 import React, { useEffect, useState } from "react";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -47,12 +47,25 @@ for (const album of allAlbums) {
   });
 
   if (assets.totalCount > 0) {
-    imageAlbums.push({
-      album,
-      coverUri: assets.assets[0].uri,
-      photoCount: assets.totalCount, // Store number of image files
-    });
+  const asset = assets.assets[0];
+  let coverUri = asset.uri;
+
+  if (Platform.OS === "ios") {
+    const info = await MediaLibrary.getAssetInfoAsync(asset.id);
+    if (info?.localUri) {
+      coverUri = info.localUri;
+    } else {
+      continue; // skip this album if we can't resolve a usable URI
+    }
   }
+
+  imageAlbums.push({
+    album,
+    coverUri,
+    photoCount: assets.totalCount,
+  });
+}
+
 }
 
 setAlbums(imageAlbums);

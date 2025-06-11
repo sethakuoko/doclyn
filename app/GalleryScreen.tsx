@@ -81,6 +81,55 @@ const openSystemImagePicker = async () => {
     });
   }
 };
+const RenderMediaItem = ({ item }: { item: MediaLibrary.Asset }) => {
+  const [uri, setUri] = useState<string | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    let active = true;
+
+    if (Platform.OS === 'android') {
+      setUri(item.uri); // Android URIs are fine
+      return;
+    }
+
+    (async () => {
+      const info = await MediaLibrary.getAssetInfoAsync(item.id);
+      if (info?.localUri && active) {
+        setUri(info.localUri); // iOS fix
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (!uri) return null; // Skip rendering if URI not yet resolved
+
+  return (
+    <TouchableOpacity
+      onPress={() => {
+        console.log("Selected photo: ", uri);
+        router.push({
+          pathname: "/EditPhoteScreen",
+          params: { uri },
+        });
+      }}
+    >
+      <Image
+        source={{ uri }}
+        style={{
+          width: 105,
+          height: 110,
+          margin: 4,
+          borderRadius: 10,
+        }}
+      />
+    </TouchableOpacity>
+  );
+};
+
   return (
    <SafeAreaView style={styles.container} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -94,28 +143,8 @@ const openSystemImagePicker = async () => {
         data={photos}
         numColumns={3}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            onPress={() => {
-              // Navigate to scanning or preview
-              console.log("Selected photo: ", item.uri);
-              router.push({
-                pathname: "/EditPhoteScreen",
-                params: { uri: item.uri },
-              });
-            }}
-          >
-            <Image
-              source={{ uri: item.uri }}
-              style={{
-                width: 105,
-                height: 110,
-                margin: 4,
-                borderRadius: 10,
-              }}
-            />
-          </TouchableOpacity>
-        )}
+        renderItem={({ item }) => <RenderMediaItem item={item} />
+}
       />
 
       <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 0, borderRadius: 10 }}>
@@ -162,4 +191,4 @@ const styles = {
   },
 };
 
-export default GalleryScreen;
+export default GalleryScreen;2
