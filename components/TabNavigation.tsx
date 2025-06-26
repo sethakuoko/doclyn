@@ -1,4 +1,5 @@
 import * as ImagePicker from "expo-image-picker";
+import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { TabNavigationProps } from "../app/types";
@@ -8,16 +9,20 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   activeTab,
   onTabChange,
   showCameraControls,
+  takePicture,
 }) => {
   const [flashMode, setFlashMode] = useState<"off" | "on">("off");
+  const router = useRouter();
 
   const handleTakePicture = (): void => {
-    // This will be called from the parent component
-    console.log("Take picture triggered");
-    Alert.alert(
-      "Camera",
-      "Take picture functionality will be connected to camera component"
-    );
+    if (takePicture) {
+      takePicture();
+    } else {
+      Alert.alert(
+        "Camera",
+        "Take picture functionality will be connected to camera component"
+      );
+    }
   };
 
   const handleToggleFlash = (): void => {
@@ -33,14 +38,6 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
     });
   };
 
-  const handleToggleCamera = (): void => {
-    console.log("Toggle camera triggered");
-    Alert.alert(
-      "Camera",
-      "Camera flip functionality will be connected to camera component"
-    );
-  };
-
   const handleOpenGallery = async (): Promise<void> => {
     try {
       const hasPermission = await requestImagePickerPermissions();
@@ -54,7 +51,8 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
       });
 
       if (!result.canceled && result.assets[0]) {
-        Alert.alert("Gallery", `Selected image: ${result.assets[0].uri}`);
+        const uri = result.assets[0].uri;
+        router.push({ pathname: "/EditPhoteScreen", params: { uri } });
       }
     } catch (error) {
       console.error("Error opening gallery:", error);
@@ -82,14 +80,6 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
             <Text style={styles.controlIcon}>🖼️</Text>
           </TouchableOpacity>
 
-          {/* <TouchableOpacity
-            style={styles.controlButton}
-            onPress={handleToggleFlash}
-          >
-            <Text style={styles.controlIcon}>{getFlashIcon()}</Text>
-            <Text style={styles.flashModeText}>{flashMode}</Text>
-          </TouchableOpacity> */}
-
           <TouchableOpacity
             style={styles.captureButton}
             onPress={handleTakePicture}
@@ -104,10 +94,6 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
             <Text style={styles.controlIcon}>{getFlashIcon()}</Text>
             <Text style={styles.flashModeText}>{flashMode}</Text>
           </TouchableOpacity>
-
-          <View style={styles.controlButton}>
-            {/* Empty space for symmetry */}
-          </View>
         </View>
       )}
 
@@ -146,12 +132,12 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#000",
+    backgroundColor: "#ffffff",
     paddingBottom: 20,
   },
   cameraControls: {
     flexDirection: "row",
-    justifyContent: "space-around",
+    justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 20,
@@ -164,10 +150,10 @@ const styles = StyleSheet.create({
   },
   controlIcon: {
     fontSize: 24,
-    color: "#fff",
+    color: "#333333",
   },
   flashModeText: {
-    color: "#fff",
+    color: "#333333",
     fontSize: 10,
     marginTop: 2,
   },
@@ -175,23 +161,23 @@ const styles = StyleSheet.create({
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 4,
-    borderColor: "#333",
+    borderColor: "#008080",
   },
   captureButtonInner: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: "#fff",
+    backgroundColor: "#008080",
     borderWidth: 2,
-    borderColor: "#333",
+    borderColor: "#008080",
   },
   tabContainer: {
     flexDirection: "row",
-    backgroundColor: "#111",
+    backgroundColor: "#f5f5f5",
     marginHorizontal: 20,
     borderRadius: 25,
     padding: 4,
@@ -204,15 +190,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   activeTab: {
-    backgroundColor: "#fff",
+    backgroundColor: "#008080",
   },
   tabText: {
-    color: "#ccc",
+    color: "#666666",
     fontSize: 16,
     fontWeight: "600",
   },
   activeTabText: {
-    color: "#000",
+    color: "#ffffff",
   },
 });
 

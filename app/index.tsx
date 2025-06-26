@@ -129,16 +129,16 @@ export default function App() {
         blurRadius={3}
       >
         <LinearGradient
-          colors={["rgba(0,0,0,0.4)", "rgba(0,0,0,0.7)"]}
+          colors={["rgba(255, 255, 255, 0.8)", "rgba(255, 255, 255, 0.8)"]}
           style={styles.overlay}
         >
           <View style={styles.content}>
             {/* Header Section */}
             <View style={styles.headerSection}>
-              <Text style={styles.welcomeTitle}>Welcome to Adobe Scan</Text>
+              <Text style={styles.welcomeTitle}>Welcome to Doclyn</Text>
               <Text style={styles.subtitle}>
                 Use your mobile device to scan anything to PDF. Then access the
-                PDFs anytime, anywhere from Adobe cloud storage.
+                PDFs anytime, anywhere from Doclyn cloud storage.
               </Text>
             </View>
 
@@ -218,7 +218,7 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "#ffffff",
   },
   backgroundImage: {
     flex: 1,
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
   },
   content: {
     flex: 1,
@@ -243,14 +243,14 @@ const styles = StyleSheet.create({
   welcomeTitle: {
     fontSize: 32,
     fontWeight: "300",
-    color: "#fff",
+    color: "#008080",
     textAlign: "center",
     marginBottom: 20,
     letterSpacing: 0.5,
   },
   subtitle: {
     fontSize: 16,
-    color: "#fff",
+    color: "#333333",
     textAlign: "center",
     lineHeight: 24,
     opacity: 0.9,
@@ -273,18 +273,22 @@ const styles = StyleSheet.create({
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
   },
   appleButton: {
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
   },
   googleButton: {
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
   },
   facebookButton: {
-    backgroundColor: "#1877F2",
+    backgroundColor: "#008080",
   },
   buttonIcon: {
     marginRight: 12,
@@ -294,12 +298,12 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   appleButtonText: {
-    color: "#000",
+    color: "#333333",
   },
   googleButtonText: {
-    color: "#000",
+    color: "#333333",
   },
   facebookButtonText: {
-    color: "#fff",
+    color: "#ffffff",
   },
 });

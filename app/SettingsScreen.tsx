@@ -69,7 +69,7 @@ function SettingsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       {<Stack.Screen options={{ headerShown: false }} />}
-      <StatusBar barStyle="light-content" backgroundColor="#000" />
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
       {/* Header */}
       <View style={styles.header}>
@@ -110,7 +110,7 @@ function SettingsScreen() {
             <Switch
               value={runTextRecognition}
               onValueChange={handleTextRecognitionToggle}
-              trackColor={{ false: "#333", true: "#007AFF" }}
+              trackColor={{ false: "#e0e0e0", true: "#008080" }}
               thumbColor="#fff"
             />
           </View>
@@ -127,7 +127,7 @@ function SettingsScreen() {
             <Switch
               value={saveOriginalsToPhotos}
               onValueChange={handleSaveOriginalsToggle}
-              trackColor={{ false: "#333", true: "#007AFF" }}
+              trackColor={{ false: "#e0e0e0", true: "#008080" }}
               thumbColor="#fff"
             />
           </View>
@@ -163,7 +163,7 @@ function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "#ffffff",
   },
   header: {
     flexDirection: "row",
@@ -172,12 +172,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: "#333",
+    borderBottomColor: "#e0e0e0",
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#fff",
+    color: "#008080",
   },
   doneButton: {
     paddingHorizontal: 10,
@@ -185,14 +185,14 @@ const styles = StyleSheet.create({
   },
   doneButtonText: {
     fontSize: 16,
-    color: "#007AFF",
+    color: "#008080",
     fontWeight: "500",
   },
   content: {
     flex: 1,
   },
   profileSection: {
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "#f8f9fa",
     marginHorizontal: 0,
     marginTop: 0,
   },
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: "#8A2BE2",
+    backgroundColor: "#008080",
     justifyContent: "center",
     alignItems: "center",
     position: "relative",
@@ -224,16 +224,16 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#fff",
+    color: "#333333",
     marginBottom: 4,
   },
   profileEmail: {
     fontSize: 14,
-    color: "#999",
+    color: "#666666",
     marginBottom: 8,
   },
   preferencesSection: {
-    backgroundColor: "#000",
+    backgroundColor: "#ffffff",
     marginTop: 0,
   },
   sectionHeader: {
@@ -244,11 +244,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#666",
+    color: "#666666",
     letterSpacing: 0.5,
   },
   settingsList: {
-    backgroundColor: "#000",
+    backgroundColor: "#ffffff",
     marginTop: 0,
   },
   settingsItem: {
@@ -258,11 +258,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 18,
     borderBottomWidth: 1,
-    borderBottomColor: "#333",
+    borderBottomColor: "#e0e0e0",
   },
   settingsItemText: {
     fontSize: 16,
-    color: "#fff",
+    color: "#333333",
     flex: 1,
   },
   signOutItem: {

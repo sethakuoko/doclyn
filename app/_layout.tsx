@@ -1,7 +1,7 @@
-import { Stack } from "expo-router";
 import { ClerkProvider } from "@clerk/clerk-expo";
-import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
+import { Stack } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 
 const tokenCache = {
   getToken: (key: string) => SecureStore.getItemAsync(key),
@@ -19,10 +19,7 @@ export default function RootLayout() {
   }
 
   return (
-    <ClerkProvider
-      publishableKey={clerkKey}
-      //      tokenCache={tokenCache}
-    >
+    <ClerkProvider publishableKey={clerkKey} tokenCache={tokenCache}>
       <Stack />
     </ClerkProvider>
   );

@@ -1,16 +1,15 @@
+import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import {
+  Dimensions,
+  Image,
   Modal,
-  View,
+  ScrollView,
+  StyleSheet,
   Text,
   TouchableOpacity,
-  StyleSheet,
-  Image,
-  Dimensions,
-  StatusBar,
-  ScrollView,
+  View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 
 interface Document {
   id: number;
@@ -147,7 +146,7 @@ const DocumentOptionsModal: React.FC<DocumentOptionsModalProps> = ({
                   <Ionicons
                     name={item.icon as any}
                     size={22}
-                    color={item.hasBlueIcon ? "#007AFF" : "#fff"}
+                    color={item.hasBlueIcon ? "#008080" : "#333333"}
                     style={styles.menuIcon}
                   />
                   <Text style={styles.menuText}>{item.label}</Text>
@@ -155,7 +154,7 @@ const DocumentOptionsModal: React.FC<DocumentOptionsModalProps> = ({
                     <Ionicons
                       name="add-circle"
                       size={16}
-                      color="#007AFF"
+                      color="#008080"
                       style={styles.plusIcon}
                     />
                   )}

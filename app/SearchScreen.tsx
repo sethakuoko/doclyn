@@ -1,16 +1,16 @@
+import { Ionicons } from "@expo/vector-icons";
+import { Stack, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-  View,
+  Keyboard,
+  StatusBar,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  StatusBar,
-  Keyboard,
+  View,
 } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from "@expo/vector-icons";
-import { Stack, useRouter } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const SearchScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -30,19 +30,19 @@ const SearchScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar barStyle="light-content" backgroundColor="#1a1a1a" />
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color="#fff" />
+          <Ionicons name="chevron-back" size={24} color="#333333" />
         </TouchableOpacity>
 
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
             placeholder="Search"
-            placeholderTextColor="#666"
+            placeholderTextColor="#999999"
             value={searchQuery}
             onChangeText={setSearchQuery}
             onSubmitEditing={handleSearch}
@@ -51,7 +51,7 @@ const SearchScreen: React.FC = () => {
           />
 
           <TouchableOpacity onPress={handleSearch} style={styles.searchButton}>
-            <Ionicons name="search" size={20} color="#666" />
+            <Ionicons name="search" size={20} color="#666666" />
           </TouchableOpacity>
         </View>
       </View>
@@ -105,7 +105,7 @@ const SearchScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "#ffffff",
   },
   header: {
     flexDirection: "row",
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#333",
+    borderBottomColor: "#e0e0e0",
   },
   backButton: {
     marginRight: 16,
@@ -123,14 +123,14 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#2a2a2a",
+    backgroundColor: "#f5f5f5",
     borderRadius: 8,
     paddingHorizontal: 12,
     height: 40,
   },
   searchInput: {
     flex: 1,
-    color: "#fff",
+    color: "#333333",
     fontSize: 16,
     paddingVertical: 0,
   },
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     height: 40,
     backgroundColor: "transparent",
     borderWidth: 2,
-    borderColor: "#666",
+    borderColor: "#008080",
     borderRadius: 4,
     padding: 6,
   },
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     height: 36,
     backgroundColor: "transparent",
     borderWidth: 2,
-    borderColor: "#666",
+    borderColor: "#008080",
     borderRadius: 4,
   },
   documentIcon3: {
@@ -185,67 +185,64 @@ const styles = StyleSheet.create({
     height: 24,
     backgroundColor: "transparent",
     borderWidth: 2,
-    borderColor: "#666",
+    borderColor: "#008080",
     borderRadius: 4,
     padding: 4,
   },
   documentLine: {
     height: 2,
-    backgroundColor: "#666",
+    backgroundColor: "#008080",
     marginBottom: 3,
   },
   documentLineShort: {
     height: 2,
-    backgroundColor: "#666",
+    backgroundColor: "#008080",
     width: "60%",
   },
   documentCorner: {
     position: "absolute",
-    top: -2,
-    right: -2,
+    top: 2,
+    right: 2,
     width: 8,
     height: 8,
-    borderTopWidth: 8,
-    borderRightWidth: 8,
-    borderTopColor: "#666",
-    borderRightColor: "#666",
-    borderLeftColor: "transparent",
-    borderBottomColor: "transparent",
+    backgroundColor: "#008080",
+    borderRadius: 2,
   },
   barcodeLine: {
-    height: 2,
-    backgroundColor: "#666",
+    height: 1,
+    backgroundColor: "#008080",
     marginBottom: 2,
   },
   magnifyingGlass: {
     position: "absolute",
-    bottom: 0,
-    right: 0,
-    width: 50,
-    height: 50,
+    bottom: 10,
+    right: 10,
+    width: 40,
+    height: 40,
   },
   magnifyingCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: 24,
+    height: 24,
     borderWidth: 3,
-    borderColor: "#666",
-    backgroundColor: "transparent",
+    borderColor: "#008080",
+    borderRadius: 12,
   },
   magnifyingHandle: {
     position: "absolute",
-    bottom: 2,
-    right: 2,
-    width: 16,
-    height: 3,
-    backgroundColor: "#666",
-    borderRadius: 2,
+    bottom: 0,
+    right: 0,
+    width: 3,
+    height: 16,
+    backgroundColor: "#008080",
     transform: [{ rotate: "45deg" }],
   },
   plusContainer: {
     position: "absolute",
-    top: 12,
-    left: 12,
+    top: 6,
+    left: 6,
     width: 12,
     height: 12,
     justifyContent: "center",
@@ -253,30 +250,21 @@ const styles = StyleSheet.create({
   },
   plusHorizontal: {
     position: "absolute",
-    width: 8,
+    width: 12,
     height: 2,
-    backgroundColor: "#007AFF",
-    borderRadius: 1,
+    backgroundColor: "#008080",
   },
   plusVertical: {
     position: "absolute",
     width: 2,
-    height: 8,
-    backgroundColor: "#007AFF",
-    borderRadius: 1,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#fff",
-    marginBottom: 12,
-    textAlign: "center",
+    height: 12,
+    backgroundColor: "#008080",
   },
   emptySubtitle: {
     fontSize: 16,
-    color: "#999",
+    color: "#666666",
     textAlign: "center",
-    lineHeight: 22,
+    lineHeight: 24,
   },
 });
 
