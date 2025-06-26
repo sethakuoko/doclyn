@@ -1,26 +1,21 @@
 // App.tsx
-import React, { use } from "react";
+import { ToastMessage } from "@/components/Toast";
+import { useSSO, useUser } from "@clerk/clerk-expo";
+import { Ionicons } from "@expo/vector-icons"; // Adjust the path as necessary
+import * as AppleAuthentication from "expo-apple-authentication";
+import { LinearGradient } from "expo-linear-gradient";
+import * as Linking from "expo-linking";
+import { Stack, useRouter } from "expo-router";
+import React, { useEffect } from "react";
 import {
-  View,
+  ImageBackground,
+  SafeAreaView,
+  StyleSheet,
   Text,
   TouchableOpacity,
-  ImageBackground,
-  StatusBar,
-  SafeAreaView,
-  Alert,
+  View,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons"; // Adjust the path as necessary
-import { StyleSheet, Dimensions } from "react-native";
-import * as AppleAuthentication from "expo-apple-authentication";
-import { ToastMessage } from "@/components/Toast";
 import Toast from "react-native-toast-message";
-import { Stack, useRouter } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
-import * as Linking from "expo-linking";
-import { useSSO } from "@clerk/clerk-expo";
-import { useUser } from "@clerk/clerk-expo";
-import { useEffect } from "react";
 
 export default function App() {
   const { startSSOFlow } = useSSO();
@@ -129,9 +124,7 @@ export default function App() {
     <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
       <ImageBackground
-        source={{
-          uri: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
-        }}
+        source={require("../assets/images/IndexBackground.jpg")}
         style={styles.backgroundImage}
         blurRadius={3}
       >
@@ -201,14 +194,13 @@ export default function App() {
                   Sign in with Facebook
                 </Text>
               </TouchableOpacity>
-<TouchableOpacity
+              <TouchableOpacity
                 style={[styles.signInButton, styles.facebookButton]}
                 onPress={() => router.push("/HomeScreen")}
                 activeOpacity={0.8}
               >
-                
                 <Text style={[styles.buttonText, styles.facebookButtonText]}>
-                  Continue 
+                  Continue
                 </Text>
               </TouchableOpacity>
               {/* Existing Account Link */}
