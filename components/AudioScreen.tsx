@@ -125,7 +125,7 @@ const AudioScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "#ffffff",
     padding: 20,
   },
   header: {
@@ -133,13 +133,13 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   title: {
-    color: "#fff",
+    color: "#008080",
     fontSize: 24,
     fontWeight: "bold",
     marginBottom: 8,
   },
   subtitle: {
-    color: "#ccc",
+    color: "#666666",
     fontSize: 16,
     textAlign: "center",
   },
@@ -151,16 +151,16 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: "#333",
+    backgroundColor: "#f5f5f5",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 20,
     borderWidth: 3,
-    borderColor: "#555",
+    borderColor: "#e0e0e0",
   },
   micButtonActive: {
-    backgroundColor: "#ff4444",
-    borderColor: "#ff6666",
+    backgroundColor: "#008080",
+    borderColor: "#006666",
   },
   micIcon: {
     position: "relative",
@@ -170,11 +170,11 @@ const styles = StyleSheet.create({
   micShape: {
     width: 30,
     height: 40,
-    backgroundColor: "#fff",
+    backgroundColor: "#333333",
     borderRadius: 15,
   },
   micShapeActive: {
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
   },
   recordingIndicator: {
     position: "absolute",
@@ -182,17 +182,17 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     borderWidth: 2,
-    borderColor: "#fff",
+    borderColor: "#008080",
     opacity: 0.7,
   },
   recordingStatus: {
-    color: "#fff",
+    color: "#333333",
     fontSize: 18,
     fontWeight: "600",
     marginBottom: 10,
   },
   timer: {
-    color: "#ff4444",
+    color: "#008080",
     fontSize: 16,
     fontWeight: "bold",
   },
@@ -207,28 +207,32 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   transcriptionTitle: {
-    color: "#fff",
+    color: "#333333",
     fontSize: 18,
     fontWeight: "600",
   },
   clearButton: {
     paddingHorizontal: 15,
     paddingVertical: 8,
-    backgroundColor: "#333",
+    backgroundColor: "#f5f5f5",
     borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
   },
   clearButtonText: {
-    color: "#fff",
+    color: "#008080",
     fontSize: 14,
   },
   transcriptionContainer: {
     flex: 1,
-    backgroundColor: "#111",
+    backgroundColor: "#f8f9fa",
     borderRadius: 10,
     padding: 15,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
   },
   transcriptionText: {
-    color: "#ccc",
+    color: "#333333",
     fontSize: 16,
     lineHeight: 24,
   },
@@ -240,18 +244,18 @@ const styles = StyleSheet.create({
   actionButton: {
     paddingHorizontal: 30,
     paddingVertical: 12,
-    backgroundColor: "#333",
+    backgroundColor: "#008080",
     borderRadius: 25,
     minWidth: 100,
     alignItems: "center",
   },
   actionButtonText: {
-    color: "#fff",
+    color: "#ffffff",
     fontSize: 16,
     fontWeight: "600",
   },
   disabledText: {
-    color: "#666",
+    color: "#999999",
   },
 });
 

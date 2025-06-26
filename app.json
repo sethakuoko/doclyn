@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Adobe",
-    "slug": "Adobe",
+    "name": "Doclyn",
+    "slug": "Doclyn",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/splash-icon.jpg",
-    "scheme": "adobe",
+    "scheme": "doclyn",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "platforms": ["ios", "android", "web"],

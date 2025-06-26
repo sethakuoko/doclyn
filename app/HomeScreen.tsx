@@ -1,19 +1,18 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Image,
-  StyleSheet,
-  StatusBar,
-  ScrollView,
-  Alert,
-} from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context'; // RECOMMENDED package
+import DocumentOptionsModal from "@/components/DocumentOptionsModal";
+import HomeViewModal from "@/components/HomeViewModal";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
-import HomeViewModal from "@/components/HomeViewModal";
-import DocumentOptionsModal from "@/components/DocumentOptionsModal";
+import React, { useState } from "react";
+import {
+  Image,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context"; // RECOMMENDED package
 
 interface Document {
   id: number;
@@ -23,7 +22,7 @@ interface Document {
   isLarge?: boolean;
 }
 
-const AdobeScanHomeScreen: React.FC = () => {
+const DoclynHomeScreen: React.FC = () => {
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
   // Sample data - in real app this would come from database
@@ -38,7 +37,7 @@ const AdobeScanHomeScreen: React.FC = () => {
     },
     {
       id: 2,
-      title: "Adobe Scan 19 May 2025",
+      title: "Doclyn 19 May 2025",
       date: "5/19/25",
       thumbnail:
         "https://via.placeholder.com/150x200/f0f0f0/333333?text=Document+2",
@@ -125,12 +124,12 @@ const AdobeScanHomeScreen: React.FC = () => {
 
         <View style={styles.documentActions}>
           <TouchableOpacity onPress={() => handleShareClick(doc.id)}>
-            <Ionicons name="share-outline" size={20} color="#ffffff" />
+            <Ionicons name="share-outline" size={20} color="#333333" />
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => handleEditClick(doc.id)}>
             <View style={styles.editIconContainer}>
-              <Ionicons name="create-outline" size={20} color="#ffffff" />
+              <Ionicons name="create-outline" size={20} color="#333333" />
               <View style={styles.premiumBadge}>
                 <Ionicons name="diamond" size={8} color="#4CAF50" />
               </View>
@@ -138,11 +137,11 @@ const AdobeScanHomeScreen: React.FC = () => {
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => handleSaveAsJPEGClick(doc.id)}>
-            <Ionicons name="image-outline" size={20} color="#ffffff" />
+            <Ionicons name="image-outline" size={20} color="#333333" />
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => handleMoreOptionsClick(doc.id)}>
-            <Ionicons name="ellipsis-horizontal" size={20} color="#ffffff" />
+            <Ionicons name="ellipsis-horizontal" size={20} color="#333333" />
           </TouchableOpacity>
         </View>
       </View>
@@ -150,7 +149,7 @@ const AdobeScanHomeScreen: React.FC = () => {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <Stack.Screen options={{ headerShown: false }} />
       <StatusBar barStyle="light-content" backgroundColor="#1a1a1a" />
 
@@ -158,25 +157,25 @@ const AdobeScanHomeScreen: React.FC = () => {
       <View style={styles.header}>
         <TouchableOpacity onPress={handleSettingsclick}>
           <View style={styles.profileButton}>
-            <Ionicons name="person-circle" size={32} color="#6366f1" />
+            <Ionicons name="person-circle" size={32} color="#008080" />
           </View>
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Adobe Scan</Text>
+        <Text style={styles.headerTitle}>Doclyn</Text>
 
         <View style={styles.headerActions}>
           <TouchableOpacity
             onPress={handleSearchClick}
             style={styles.headerButton}
           >
-            <Ionicons name="search" size={24} color="#ffffff" />
+            <Ionicons name="search" size={24} color="#333333" />
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={handleMoreClick}
             style={styles.headerButton}
           >
-            <Ionicons name="ellipsis-horizontal" size={24} color="#ffffff" />
+            <Ionicons name="ellipsis-horizontal" size={24} color="#333333" />
           </TouchableOpacity>
         </View>
       </View>
@@ -235,7 +234,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "#ffffff",
   },
   header: {
     flexDirection: "row",
@@ -243,20 +242,20 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "#ffffff",
   },
   profileButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#2a2a2a",
+    backgroundColor: "#f5f5f5",
     alignItems: "center",
     justifyContent: "center",
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#ffffff",
+    color: "#008080",
   },
   headerActions: {
     flexDirection: "row",
@@ -271,7 +270,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: "#6366f1",
+    backgroundColor: "#008080",
   },
   premiumText: {
     color: "#ffffff",
@@ -297,10 +296,12 @@ const styles = StyleSheet.create({
   },
   documentContainer: {
     flexDirection: "row",
-    backgroundColor: "#2a2a2a",
+    backgroundColor: "#f8f9fa",
     borderRadius: 12,
     padding: 12,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#e9ecef",
   },
   documentImageContainer: {
     marginRight: 12,
@@ -309,20 +310,20 @@ const styles = StyleSheet.create({
     width: 80,
     height: 100,
     borderRadius: 6,
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "#ffffff",
   },
   documentInfo: {
     flex: 1,
     justifyContent: "space-between",
   },
   documentTitle: {
-    color: "#ffffff",
+    color: "#333333",
     fontSize: 16,
     fontWeight: "600",
     marginBottom: 4,
   },
   documentDate: {
-    color: "#888888",
+    color: "#666666",
     fontSize: 14,
     marginBottom: 12,
   },
@@ -348,7 +349,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   cameraButton: {
-    backgroundColor: "#2196F3",
+    backgroundColor: "#008080",
     width: 56,
     height: 56,
     borderRadius: 28,
@@ -356,7 +357,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   galleryButton: {
-    backgroundColor: "#2196F3",
+    backgroundColor: "#008080",
     width: 56,
     height: 56,
     borderRadius: 28,
@@ -365,4 +366,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AdobeScanHomeScreen;
+export default DoclynHomeScreen;

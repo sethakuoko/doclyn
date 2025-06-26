@@ -4,6 +4,7 @@ export interface TabNavigationProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
   showCameraControls: boolean;
+  takePicture?: () => void;
 }
 
 export interface CameraControlsProps {

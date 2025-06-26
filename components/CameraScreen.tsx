@@ -5,17 +5,19 @@ import {
   useCameraPermissions,
 } from "expo-camera";
 import * as MediaLibrary from "expo-media-library";
-import React, { useEffect, useRef, useState } from "react";
+import { useRouter } from "expo-router";
+import React, { useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 import { PhotoResult } from "../app/types";
 import { requestMediaLibraryPermissions } from "../utils/permissions";
 
-const CameraScreen: React.FC = () => {
+const CameraScreen = (props: any, ref: React.Ref<any>) => {
   const [permission, requestPermission] = useCameraPermissions();
   const [cameraType, setCameraType] = useState<CameraType>("back");
   const [flashMode, setFlashMode] = useState<FlashMode>("off");
   const [isReady, setIsReady] = useState<boolean>(false);
   const cameraRef = useRef<CameraView>(null);
+  const router = useRouter();
 
   useEffect(() => {
     initializeCamera();
@@ -47,8 +49,11 @@ const CameraScreen: React.FC = () => {
         skipProcessing: false,
       });
 
-      if (photo) {
-        await savePicture(photo);
+      if (photo && photo.uri) {
+        router.push({
+          pathname: "/EditPhoteScreen",
+          params: { uri: photo.uri },
+        });
       }
     } catch (error) {
       console.error("Error taking picture:", error);
@@ -69,6 +74,10 @@ const CameraScreen: React.FC = () => {
       Alert.alert("Error", "Failed to save picture");
     }
   };
+
+  useImperativeHandle(ref, () => ({
+    takePicture,
+  }));
 
   if (!permission) {
     return (
@@ -111,7 +120,7 @@ const CameraScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "#ffffff",
   },
   camera: {
     flex: 1,
@@ -124,20 +133,20 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#000",
+    backgroundColor: "#ffffff",
     padding: 20,
   },
   permissionText: {
-    color: "#fff",
+    color: "#333333",
     fontSize: 18,
     textAlign: "center",
     marginBottom: 10,
   },
   permissionSubText: {
-    color: "#ccc",
+    color: "#666666",
     fontSize: 14,
     textAlign: "center",
   },
 });
 
-export default CameraScreen;
+export default React.forwardRef(CameraScreen);

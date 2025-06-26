@@ -1,7 +1,7 @@
 // components/ModalExample.tsx
-import React, { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Modal } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import React, { useState } from "react";
+import { Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface ModalOption {
   id: string;
@@ -57,7 +57,7 @@ const HomeViewModal: React.FC<HomeViewModalProps> = ({ visible, onClose }) => {
                   <Ionicons
                     name={option.icon}
                     size={20}
-                    color={selectedOption === option.id ? "#3B82F6" : "#FFFFFF"}
+                    color={selectedOption === option.id ? "#008080" : "#333333"}
                   />
                   <Text
                     style={[
@@ -69,7 +69,7 @@ const HomeViewModal: React.FC<HomeViewModalProps> = ({ visible, onClose }) => {
                   </Text>
                 </View>
                 {selectedOption === option.id && (
-                  <Ionicons name="checkmark" size={16} color="#3B82F6" />
+                  <Ionicons name="checkmark" size={16} color="#008080" />
                 )}
               </TouchableOpacity>
             ))}
@@ -85,7 +85,7 @@ export default HomeViewModal;
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#1F2937",
+    backgroundColor: "#ffffff",
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
     width: "100%",
@@ -108,12 +108,12 @@ const styles = StyleSheet.create({
   },
   optionText: {
     fontSize: 16,
-    color: "#FFFFFF",
+    color: "#333333",
     marginLeft: 12,
     fontWeight: "400",
   },
   selectedText: {
-    color: "#3B82F6",
+    color: "#008080",
   },
   bottomIndicator: {
     alignItems: "center",
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   },
 
   bottomSheetContainer: {
-    backgroundColor: "#1F2937",
+    backgroundColor: "#ffffff",
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
     paddingHorizontal: 16,
