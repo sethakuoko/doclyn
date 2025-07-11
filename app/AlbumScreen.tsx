@@ -1,18 +1,10 @@
 // app/AlbumScreen.tsx
 import * as ImagePicker from "expo-image-picker";
-import { Image, Platform } from "react-native";
-import React, { useEffect, useState } from "react";
-import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-    StatusBar,
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
-} from "react-native";
 import * as MediaLibrary from "expo-media-library";
 import { Stack, useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
+import { FlatList, Image, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 // Move openSystemImagePicker inside the component to access router
 const [albums, setAlbums] = useState<
   { album: MediaLibrary.Album; coverUri: string }[]
