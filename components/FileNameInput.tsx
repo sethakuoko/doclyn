@@ -27,13 +27,10 @@ export const useFileNameInput = (props: FileNameInputProps) => {
         {
           text: "OK",
           onPress: (inputText) => {
-            if (inputText && inputText.trim()) {
-              const newFileName = inputText.trim();
-              console.log("New file name entered:", newFileName);
-              props.onFileNameUpdate(newFileName);
-            } else {
-              Alert.alert("Invalid Input", "Please enter a valid file name.");
-            }
+            const newFileName = inputText ? inputText.trim() : "";
+            // Allow empty string as valid (no prefix)
+            props.onFileNameUpdate(newFileName);
+            console.log("New file name entered:", newFileName);
           },
         },
       ],

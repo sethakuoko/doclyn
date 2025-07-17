@@ -1,17 +1,20 @@
 import * as ImagePicker from "expo-image-picker";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import React, { useState } from "react";
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { TabNavigationProps } from "../app/types";
 import { requestImagePickerPermissions } from "../utils/permissions";
+import { COLORS } from "../app/types";
+import { Ionicons } from "@expo/vector-icons";
 
 const TabNavigation: React.FC<TabNavigationProps> = ({
   activeTab,
   onTabChange,
   showCameraControls,
   takePicture,
+  onFlashModeChange,
+  flashMode,
 }) => {
-  const [flashMode, setFlashMode] = useState<"off" | "on">("off");
   const router = useRouter();
 
   const handleTakePicture = (): void => {
@@ -26,16 +29,24 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   };
 
   const handleToggleFlash = (): void => {
-    setFlashMode((current) => {
-      switch (current) {
-        case "off":
-          return "on";
-        case "on":
-          return "off";
-        default:
-          return "off";
-      }
-    });
+    let newMode: "off" | "on" | "auto";
+    switch (flashMode) {
+      case "off":
+        newMode = "on";
+        break;
+      case "on":
+        newMode = "auto";
+        break;
+      case "auto":
+        newMode = "off";
+        break;
+      default:
+        newMode = "off";
+    }
+    
+    if (onFlashModeChange) {
+      onFlashModeChange(newMode);
+    }
   };
 
   const handleOpenGallery = async (): Promise<void> => {
@@ -45,14 +56,17 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
+        allowsMultipleSelection: false,
         quality: 1,
       });
 
       if (!result.canceled && result.assets[0]) {
         const uri = result.assets[0].uri;
-        router.push({ pathname: "/EditPhoteScreen", params: { uri } });
+        console.log("System Picker Selected Image URI:", uri);
+        router.replace({
+          pathname: "/EditPhotoScreen",
+          params: { uri, from: "gallery" },
+        });
       }
     } catch (error) {
       console.error("Error opening gallery:", error);
@@ -64,6 +78,8 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
     switch (flashMode) {
       case "on":
         return "⚡";
+      case "auto":
+        return "🔆";
       default:
         return "⚡";
     }
@@ -71,6 +87,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
 
   return (
     <View style={styles.container}>
+      
       {showCameraControls && (
         <View style={styles.cameraControls}>
           <TouchableOpacity
@@ -132,8 +149,37 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#ffffff",
+    backgroundColor: "#1a1a1a", // Dark background
     paddingBottom: 20,
+  },
+  appBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: 18,
+    paddingBottom: 12,
+    paddingHorizontal: 18,
+    backgroundColor: COLORS.background,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.backgroundSecondary,
+  },
+  appBarHomeButton: {
+    width: 50,
+    height: 50,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: 25,
+  },
+  appBarHomeIcon: {
+    fontSize: 26,
+  },
+  appBarTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 20,
+    fontWeight: "bold",
+    paddingHorizontal: 16,
+    paddingVertical: 6,
   },
   cameraControls: {
     flexDirection: "row",
@@ -150,10 +196,10 @@ const styles = StyleSheet.create({
   },
   controlIcon: {
     fontSize: 24,
-    color: "#333333",
+    color: "#ffffff", // White icons for dark theme
   },
   flashModeText: {
-    color: "#333333",
+    color: "#ffffff", // White text for dark theme
     fontSize: 10,
     marginTop: 2,
   },
@@ -177,7 +223,7 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: "row",
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#2a2a2a", // Dark tab background
     marginHorizontal: 20,
     borderRadius: 25,
     padding: 4,
@@ -193,7 +239,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#008080",
   },
   tabText: {
-    color: "#666666",
+    color: "#999999", // Light gray for inactive tabs
     fontSize: 16,
     fontWeight: "600",
   },

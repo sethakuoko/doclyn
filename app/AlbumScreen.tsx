@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import * as MediaLibrary from "expo-media-library";
 import { Stack, useRouter } from "expo-router";
+import { COLORS } from "./types";
 // Move openSystemImagePicker inside the component to access router
 const [albums, setAlbums] = useState<
   { album: MediaLibrary.Album; coverUri: string }[]
@@ -94,8 +95,8 @@ setAlbums(imageAlbums);
 
     if (!result.canceled) {
       const uri = result.assets[0].uri;
-      router.push({
-        pathname: "/EditPhoteScreen",
+      router.replace({
+        pathname: "/EditPhotoScreen",
         params: { uri },
       });
     }
@@ -144,30 +145,27 @@ const style = {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#1a1a1a", padding: 20 },
-  heading: { color: "#fff", fontSize: 20, marginBottom: 10, height: 30},
+  container: { flex: 1, backgroundColor: COLORS.background, padding: 20 },
+  heading: { color: COLORS.textPrimary, fontSize: 20, marginBottom: 10, height: 30},
   albumItem: {
-  width: "48%", // Roughly half, with spacing
-  height: 195,
-  borderRadius: 8,
-  overflow: "hidden",
-  backgroundColor: "#1a1a1a",
-},
-
-albumCover: {
-  width: "100%",
-  height: 150,
-  borderRadius: 8,
-},
-
-albumText: {
-  color: "#fff",
-  fontSize: 13,
-  paddingVertical: 2,
-  paddingHorizontal: 5,
-  lineHeight: 20,
- 
-},
+    width: "48%", // Roughly half, with spacing
+    height: 195,
+    borderRadius: 8,
+    overflow: "hidden",
+    backgroundColor: COLORS.backgroundSecondary,
+  },
+  albumCover: {
+    width: "100%",
+    height: 150,
+    borderRadius: 8,
+  },
+  albumText: {
+    color: COLORS.textPrimary,
+    fontSize: 13,
+    paddingVertical: 2,
+    paddingHorizontal: 5,
+    lineHeight: 20,
+  },
 });
 
 export default AlbumScreen;

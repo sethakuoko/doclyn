@@ -6,11 +6,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useRouter } from "expo-router";
 
 const AudioScreen: React.FC = () => {
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [transcribedText, setTranscribedText] = useState<string>("");
   const [recordingTime, setRecordingTime] = useState<number>(0);
+  const router = useRouter();
 
   const toggleRecording = (): void => {
     setIsRecording(!isRecording);
@@ -33,6 +35,7 @@ const AudioScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
+      {/* Top App Bar with Home Button */}
       <View style={styles.header}>
         <Text style={styles.title}>Audio to Text</Text>
         <Text style={styles.subtitle}>
@@ -125,7 +128,7 @@ const AudioScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#1a1a1a", // Dark background
     padding: 20,
   },
   header: {
@@ -139,7 +142,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   subtitle: {
-    color: "#666666",
+    color: "#cccccc", // Light gray text
     fontSize: 16,
     textAlign: "center",
   },
@@ -151,12 +154,12 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#2a2a2a", // Dark button background
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 20,
     borderWidth: 3,
-    borderColor: "#e0e0e0",
+    borderColor: "#404040", // Dark border
   },
   micButtonActive: {
     backgroundColor: "#008080",
@@ -170,7 +173,7 @@ const styles = StyleSheet.create({
   micShape: {
     width: 30,
     height: 40,
-    backgroundColor: "#333333",
+    backgroundColor: "#ffffff", // White mic shape
     borderRadius: 15,
   },
   micShapeActive: {
@@ -186,7 +189,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   recordingStatus: {
-    color: "#333333",
+    color: "#ffffff", // White text
     fontSize: 18,
     fontWeight: "600",
     marginBottom: 10,
@@ -207,17 +210,17 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   transcriptionTitle: {
-    color: "#333333",
+    color: "#ffffff", // White text
     fontSize: 18,
     fontWeight: "600",
   },
   clearButton: {
     paddingHorizontal: 15,
     paddingVertical: 8,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#2a2a2a", // Dark button background
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: "#404040", // Dark border
   },
   clearButtonText: {
     color: "#008080",
@@ -225,14 +228,14 @@ const styles = StyleSheet.create({
   },
   transcriptionContainer: {
     flex: 1,
-    backgroundColor: "#f8f9fa",
+    backgroundColor: "#2a2a2a", // Dark container background
     borderRadius: 10,
     padding: 15,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: "#404040", // Dark border
   },
   transcriptionText: {
-    color: "#333333",
+    color: "#ffffff", // White text
     fontSize: 16,
     lineHeight: 24,
   },
@@ -255,7 +258,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   disabledText: {
-    color: "#999999",
+    color: "#666666", // Darker gray for disabled state
   },
 });
 

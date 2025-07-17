@@ -6,21 +6,37 @@ import {
 } from "expo-camera";
 import * as MediaLibrary from "expo-media-library";
 import { useRouter } from "expo-router";
-import React, { useEffect, useImperativeHandle, useRef, useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useImperativeHandle, useRef, useState, ForwardedRef } from "react";
+import { Alert, StyleSheet, Text, View, Modal, TouchableOpacity } from "react-native";
 import { PhotoResult } from "../app/types";
 import { requestMediaLibraryPermissions } from "../utils/permissions";
+import { getDefaultFilePrefix, getSaveOriginalsToPhotos } from "../utils/storage";
+import * as FileSystem from "expo-file-system";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Sharing from "expo-sharing";
 
-const CameraScreen = (props: any, ref: React.Ref<any>) => {
+interface CameraScreenProps {
+  flashMode?: FlashMode;
+}
+
+const CameraScreen = (props: CameraScreenProps, ref: ForwardedRef<any>) => {
   const [permission, requestPermission] = useCameraPermissions();
   const [cameraType, setCameraType] = useState<CameraType>("back");
-  const [flashMode, setFlashMode] = useState<FlashMode>("off");
+  const [flashMode, setFlashMode] = useState<FlashMode>(props.flashMode || "off");
   const [isReady, setIsReady] = useState<boolean>(false);
   const cameraRef = useRef<CameraView>(null);
   const router = useRouter();
 
+  // Update flash mode when props change
+  useEffect(() => {
+    if (props.flashMode) {
+      setFlashMode(props.flashMode);
+    }
+  }, [props.flashMode]);
+
   useEffect(() => {
     initializeCamera();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const initializeCamera = async (): Promise<void> => {
@@ -28,7 +44,7 @@ const CameraScreen = (props: any, ref: React.Ref<any>) => {
       if (!permission?.granted) {
         await requestPermission();
       }
-      const mediaPermission = await requestMediaLibraryPermissions();
+      await requestMediaLibraryPermissions();
       setIsReady(true);
     } catch (error) {
       console.error("Camera initialization error:", error);
@@ -41,18 +57,33 @@ const CameraScreen = (props: any, ref: React.Ref<any>) => {
       Alert.alert("Camera not ready", "Please wait for camera to initialize");
       return;
     }
-
     try {
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.8,
         base64: false,
         skipProcessing: false,
       });
-
       if (photo && photo.uri) {
+        // Generate a unique name using the default prefix and current time
+        let prefix = await getDefaultFilePrefix();
+        const timestamp = Date.now();
+        if (!prefix) prefix = "Scan";
+        let originalName = photo.uri.split("/").pop() || "";
+        originalName = originalName.replace(/^IMG[_-]?/i, "");
+        originalName = originalName.replace(/\.png$/i, "");
+        const generatedName = `${prefix}_${timestamp}.pdf`;
+        // Check if we should save the original to the gallery
+        const shouldSaveOriginal = await getSaveOriginalsToPhotos();
+        if (shouldSaveOriginal) {
+          try {
+            await MediaLibrary.createAssetAsync(photo.uri);
+          } catch (err) {
+            console.error('Failed to save original photo to gallery:', err);
+          }
+        }
         router.push({
-          pathname: "/EditPhoteScreen",
-          params: { uri: photo.uri },
+          pathname: "/EditPhotoScreen",
+          params: { uri: photo.uri, generatedName, from: "camera" },
         });
       }
     } catch (error) {
@@ -108,11 +139,7 @@ const CameraScreen = (props: any, ref: React.Ref<any>) => {
         facing={cameraType}
         flash={flashMode}
         ratio="16:9"
-      >
-        <View style={styles.cameraOverlay}>
-          {/* Camera overlay content can be added here */}
-        </View>
-      </CameraView>
+      />
     </View>
   );
 };
@@ -120,7 +147,7 @@ const CameraScreen = (props: any, ref: React.Ref<any>) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#1a1a1a", // Dark background
   },
   camera: {
     flex: 1,
@@ -133,17 +160,17 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#ffffff",
+    backgroundColor: "#1a1a1a", // Dark background
     padding: 20,
   },
   permissionText: {
-    color: "#333333",
+    color: "#ffffff", // White text
     fontSize: 18,
     textAlign: "center",
     marginBottom: 10,
   },
   permissionSubText: {
-    color: "#666666",
+    color: "#cccccc", // Light gray text
     fontSize: 14,
     textAlign: "center",
   },

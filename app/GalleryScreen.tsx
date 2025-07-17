@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { COLORS } from "./types";
 const { albumId, title } = useLocalSearchParams();
 
 // This screen will display photos from the media library
@@ -72,9 +73,9 @@ const GalleryScreen = () => {
     if (!result.canceled) {
       const uri = result.assets[0].uri;
       console.log("System Picker Selected Image URI:", uri);
-      router.push({
-        pathname: "/EditPhoteScreen",
-        params: { uri },
+      router.replace({
+        pathname: "/EditPhotoScreen",
+        params: { uri, from: "gallery" },
       });
     }
   };
@@ -108,9 +109,9 @@ const GalleryScreen = () => {
       <TouchableOpacity
         onPress={() => {
           console.log("Selected photo: ", uri);
-          router.push({
-            pathname: "/EditPhoteScreen",
-            params: { uri },
+          router.replace({
+            pathname: "/EditPhotoScreen",
+            params: { uri, from: "gallery" },
           });
         }}
       >
@@ -130,9 +131,9 @@ const GalleryScreen = () => {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      <View style={{ flex: 1, backgroundColor: "#ffffff", padding: 10 }}>
-        <Text style={{ color: "#008080", fontSize: 20, marginBottom: 10 }}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <View style={{ flex: 1, backgroundColor: COLORS.background, padding: 10 }}>
+        <Text style={{ color: COLORS.brand, fontSize: 20, marginBottom: 10 }}>
           {title ? `Album: ${title}` : "Your Photos"}
         </Text>
 
@@ -156,14 +157,14 @@ const GalleryScreen = () => {
             style={{
               flex: 1,
               padding: 10,
-              backgroundColor: "#f8f9fa",
+              backgroundColor: COLORS.backgroundSecondary,
               borderRadius: 10,
               marginRight: 5,
               borderWidth: 1,
-              borderColor: "#e0e0e0",
+              borderColor: COLORS.border,
             }}
           >
-            <Text style={{ color: "#008080", textAlign: "center" }}>
+            <Text style={{ color: COLORS.brand, textAlign: "center" }}>
               Open Albums...
             </Text>
           </TouchableOpacity>
@@ -173,14 +174,14 @@ const GalleryScreen = () => {
             style={{
               flex: 1,
               padding: 10,
-              backgroundColor: "#f8f9fa",
+              backgroundColor: COLORS.backgroundSecondary,
               borderRadius: 10,
               marginLeft: 5,
               borderWidth: 1,
-              borderColor: "#e0e0e0",
+              borderColor: COLORS.border,
             }}
           >
-            <Text style={{ color: "#008080", textAlign: "center" }}>
+            <Text style={{ color: COLORS.brand, textAlign: "center" }}>
               Show all photos...
             </Text>
           </TouchableOpacity>
@@ -193,9 +194,8 @@ const GalleryScreen = () => {
 const styles = {
   container: {
     flex: 1,
-    backgroundColor: "#ffffff",
+    backgroundColor: COLORS.background,
   },
 };
 
 export default GalleryScreen;
-2;

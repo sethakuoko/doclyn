@@ -12,10 +12,11 @@ interface ModalOption {
 type HomeViewModalProps = {
   visible: boolean;
   onClose: () => void;
+  selectedOption: string;
+  onSelectOption: (optionId: string) => void;
 };
 
-const HomeViewModal: React.FC<HomeViewModalProps> = ({ visible, onClose }) => {
-  const [selectedOption, setSelectedOption] = useState<string>("viewAll");
+const HomeViewModal: React.FC<HomeViewModalProps> = ({ visible, onClose, selectedOption, onSelectOption }) => {
 
   const options: ModalOption[] = [
     { id: "viewAll", icon: "list-outline", title: "View all scans" },
@@ -28,7 +29,8 @@ const HomeViewModal: React.FC<HomeViewModalProps> = ({ visible, onClose }) => {
 
   const handleOptionPress = (optionId: string) => {
     if (optionId === "viewAll" || optionId === "selectMultiple") {
-      setSelectedOption(optionId);
+      onSelectOption(optionId);
+      onClose();
     }
   };
 
@@ -57,7 +59,7 @@ const HomeViewModal: React.FC<HomeViewModalProps> = ({ visible, onClose }) => {
                   <Ionicons
                     name={option.icon}
                     size={20}
-                    color={selectedOption === option.id ? "#008080" : "#333333"}
+                    color={selectedOption === option.id ? "#008080" : "#B0B0B0"}
                   />
                   <Text
                     style={[
@@ -85,7 +87,7 @@ export default HomeViewModal;
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#ffffff",
+    backgroundColor: "#232323",
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
     width: "100%",
@@ -108,7 +110,7 @@ const styles = StyleSheet.create({
   },
   optionText: {
     fontSize: 16,
-    color: "#333333",
+    color: "#fff",
     marginLeft: 12,
     fontWeight: "400",
   },
@@ -127,7 +129,7 @@ const styles = StyleSheet.create({
   },
 
   bottomSheetContainer: {
-    backgroundColor: "#ffffff",
+    backgroundColor: "#232323",
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
     paddingHorizontal: 16,

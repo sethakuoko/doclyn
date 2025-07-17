@@ -8,17 +8,21 @@
     "scheme": "doclyn",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "platforms": ["ios", "android", "web"],
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
     "ios": {
       "supportsTablet": true,
-       "usesAppleSignIn": true,
-       "infoPlist": {
+      "usesAppleSignIn": true,
+      "infoPlist": {
         "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to scan documents.",
         "NSPhotoLibraryAddUsageDescription": "This app needs permission to save scanned documents to your photo library."
-    }
-  },
+      }
+    },
     "extra": {
-      "CLERK_PUBLISHABLE_KEY":"pk_test_c29jaWFsLW1hcnRpbi0xMy5jbGVyay5hY2NvdW50cy5kZXYk"
+      "CLERK_PUBLISHABLE_KEY": "pk_test_c29jaWFsLW1hcnRpbi0xMy5jbGVyay5hY2NvdW50cy5kZXYk"
     },
     "android": {
       "adaptiveIcon": {
@@ -50,7 +54,8 @@
         }
       ],
       "expo-web-browser",
-      "expo-media-library"
+      "expo-media-library",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true
