@@ -1,5 +1,5 @@
 // API configuration
-const API_BASE_URL = 'http://172.20.10.2:8080/api';
+const API_BASE_URL = 'http://100.66.243.151:8080/api';
 
 // API endpoints
 const ENDPOINTS = {
@@ -8,18 +8,18 @@ const ENDPOINTS = {
 };
 
 // Types
-export interface UserLoginRequest {
-  id: string;
+export interface AuthRequest {
   email: string;
-  fullName: string;
+  password: string;
+  action: 'signIn' | 'createAccount';
 }
 
-export interface UserLoginResponse {
+export interface AuthResponse {
   message: string;
   success: boolean;
-  id: string;
-  email: string;
-  fullName: string;
+  userId?: string;
+  email?: string;
+  fullName?: string;
 }
 
 // API service class
@@ -69,12 +69,12 @@ export class ApiService {
     }
   }
 
-  // User login
-  static async loginUser(userData: UserLoginRequest): Promise<UserLoginResponse> {
-    console.log('🔐 Attempting user login with data:', JSON.stringify(userData, null, 2));
-    return this.makeRequest<UserLoginResponse>(ENDPOINTS.USER_LOGIN, {
+  // User authentication (login or create account)
+  static async authenticateUser(authData: AuthRequest): Promise<AuthResponse> {
+    console.log('🔐 Attempting user authentication with data:', JSON.stringify(authData, null, 2));
+    return this.makeRequest<AuthResponse>(ENDPOINTS.USER_LOGIN, {
       method: 'POST',
-      body: JSON.stringify(userData),
+      body: JSON.stringify(authData),
     });
   }
 

@@ -4,7 +4,7 @@
     "slug": "Doclyn",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/splash-icon.jpg",
+    "icon": "./assets/images/icon.png",
     "scheme": "doclyn",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -22,7 +22,11 @@
       }
     },
     "extra": {
-      "CLERK_PUBLISHABLE_KEY": "pk_test_c29jaWFsLW1hcnRpbi0xMy5jbGVyay5hY2NvdW50cy5kZXYk"
+      
+      "router": {},
+      "eas": {
+        "projectId": "2448f72c-02bf-4f09-ab92-d58979a2ff22"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -33,8 +37,11 @@
       "permissions": [
         "READ_MEDIA_IMAGES",
         "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
-      ]
+        "WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
+      "package": "com.doclyn"
     },
     "web": {
       "bundler": "metro",
@@ -47,7 +54,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
@@ -59,6 +66,7 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "owner": "sethakuoko123"
   }
 }

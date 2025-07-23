@@ -11,14 +11,15 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class User {
-    
+
     @Id
-    @Column(name = "id", length = 200)
-    private String id;
-    
-    @Column(name = "fullName", length = 100)
-    private String fullName;
-    
-    @Column(name = "email", length = 100)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private Long id;
+
+    @Column(name = "email", unique = true, nullable = false)
     private String email;
-} 
+
+    @Column(name = "password", nullable = false)
+    private String password;
+}

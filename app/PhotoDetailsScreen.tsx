@@ -1,15 +1,15 @@
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity, StatusBar, Platform, Modal, Alert, Linking, ScrollView } from "react-native";
-import React, { useEffect, useState } from "react";
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { WebView } from 'react-native-webview';
-import * as FileSystem from "expo-file-system";
-import * as Sharing from "expo-sharing";
-import * as Print from "expo-print";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { COLORS } from "./types";
+import * as FileSystem from "expo-file-system";
+import * as Print from "expo-print";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import * as Sharing from "expo-sharing";
+import React, { useEffect, useState } from "react";
+import { Alert, Dimensions, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import Pdf from 'react-native-pdf';
+import { WebView } from 'react-native-webview';
 import { getDefaultFilePrefix } from "../utils/storage";
+import { COLORS } from "./types";
 
 const { width, height } = Dimensions.get('window');
 
@@ -227,20 +227,29 @@ const PhotoDetailsScreen = () => {
             minimumZoomScale={0.5}
             scrollEnabled
           >
-            {pdfHtml ? (
-              <WebView
-                originWhitelist={["*"]}
-                source={{ html: pdfHtml }}
-                style={{ width: width, height: height * 0.7, transform: [{ scale: zoom }] }}
-                javaScriptEnabled
-                domStorageEnabled
-                startInLoadingState
-                scrollEnabled
-              />
-            ) : (
-              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <Text style={{ color: '#fff' }}>Loading PDF...</Text>
-              </View>
+            {isPdf(filePath) && !loading && !error && (
+              Platform.OS === 'android' ? (
+                <Pdf
+                  source={{ uri: filePath }}
+                  style={{ flex: 1, width: '100%', height: '100%' }}
+                  onError={() => setError('Unable to display PDF.')}
+                  onLoadComplete={() => setLoading(false)}
+                  onPageChanged={() => {}}
+                  onPressLink={(uri) => Linking.openURL(uri)}
+                />
+              ) : (
+                <WebView
+                  originWhitelist={["*"]}
+                  source={{ html: pdfHtml }}
+                  style={{ flex: 1, width: '100%', height: '100%' }}
+                  scalesPageToFit={true}
+                  bounces={false}
+                  javaScriptEnabled={true}
+                  domStorageEnabled={true}
+                  startInLoadingState={true}
+                  renderError={() => <Text style={{ color: 'white', textAlign: 'center', marginTop: 20 }}>Unable to display PDF.</Text>}
+                />
+              )
             )}
           </ScrollView>
         </TouchableOpacity>

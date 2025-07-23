@@ -1,5 +1,4 @@
 import { useFileNameInput } from "@/components/FileNameInput";
-import { useAuth } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import React, { useState, useEffect } from "react";
@@ -15,7 +14,6 @@ import {
 } from "react-native";
 import { logout, getUserSession, setDefaultFilePrefix, getDefaultFilePrefix, setSaveOriginalsToPhotos, getSaveOriginalsToPhotos } from "../utils/storage";
 import { COLORS } from "./types";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 function SettingsScreen() {
   const router = useRouter();
@@ -24,7 +22,6 @@ function SettingsScreen() {
   const [saveOriginalsToPhotos, setSaveOriginalsToPhotosState] = useState(false);
   const [defaultFileName, setDefaultFileName] = useState("Scan");
   const [userData, setUserData] = useState({ fullName: "Loading...", email: "Loading..." });
-  const { signOut } = useAuth();
 
   // Load user data from AsyncStorage
   useEffect(() => {
@@ -85,13 +82,9 @@ function SettingsScreen() {
 
   const handleSignOutPress = async () => {
     try {
-      // Use our custom logout function instead of Clerk's signOut
       await logout(router);
-      await signOut();
     } catch (error) {
       console.error('Error during logout:', error);
-      // Fallback to Clerk signOut if our logout fails
-      await signOut();
       router.replace("/");
     }
   };

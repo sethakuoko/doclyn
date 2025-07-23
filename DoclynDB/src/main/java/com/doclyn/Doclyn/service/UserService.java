@@ -7,56 +7,39 @@ import com.doclyn.Doclyn.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 @Service
 public class UserService {
-    
+
     @Autowired
     private UserRepository userRepository;
-    
+
     public UserLoginResponse processUserLogin(UserLoginRequest request) {
-        try {
-            // Check if user already exists
-            User existingUser = userRepository.findById(request.getId()).orElse(null);
-            
-            if (existingUser != null) {
-                // User exists, update their information
-                existingUser.setEmail(request.getEmail());
-                existingUser.setFullName(request.getFullName());
-                userRepository.save(existingUser);
-                
-                return new UserLoginResponse(
-                    "User login successful",
-                    true,
-                    existingUser.getId(),
-                    existingUser.getEmail(),
-                    existingUser.getFullName()
-                );
+        String email = request.getEmail();
+        String password = request.getPassword();
+        String action = request.getAction();
+
+        Optional<User> existingUser = userRepository.findByEmail(email);
+
+        if ("createAccount".equals(action)) {
+            if (existingUser.isPresent()) {
+                return new UserLoginResponse("Account with this email already exists.", false);
             } else {
-                // Create new user
-                User newUser = new User(
-                    request.getId(),
-                    request.getFullName(),
-                    request.getEmail()
-                );
-                
-                User savedUser = userRepository.save(newUser);
-                
-                return new UserLoginResponse(
-                    "User created and login successful",
-                    true,
-                    savedUser.getId(),
-                    savedUser.getEmail(),
-                    savedUser.getFullName()
-                );
+                User newUser = new User();
+                newUser.setEmail(email);
+                newUser.setPassword(password);
+                userRepository.save(newUser);
+                return new UserLoginResponse("Account created successfully!", true);
             }
-        } catch (Exception e) {
-            return new UserLoginResponse(
-                "Error processing login: " + e.getMessage(),
-                false,
-                null,
-                null,
-                null
-            );
+        } else if ("signIn".equals(action)) {
+            if (existingUser.isPresent() && existingUser.get().getPassword().equals(password)) {
+                return new UserLoginResponse("Login successful!", true);
+            } else {
+                return new UserLoginResponse("Invalid email or password.", false);
+            }
+        } else {
+            return new UserLoginResponse("Invalid action specified.", false);
         }
     }
-} 
+}
