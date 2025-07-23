@@ -1,5 +1,5 @@
 // API configuration
-const API_BASE_URL = 'http://100.66.243.151:8080/api';
+const API_BASE_URL = 'http://172.20.10.2:8080/api';
 
 // API endpoints
 const ENDPOINTS = {
