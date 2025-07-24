@@ -20,7 +20,7 @@ import {
 } from "react-native";
 // import Toast from "react-native-toast-message";
 import { ApiService } from "../utils/api";
-import { checkLoginStatus, saveUserSession } from "../utils/storage";
+import { checkLoginStatus, storeUserSession } from "../utils/storage";
 import { COLORS } from "./types";
 
 export default function App() {
@@ -57,6 +57,7 @@ export default function App() {
         action,
       });
       if (response.success) {
+        await storeUserSession(email);
         ToastMessage("success", response.message);
         router.replace("/HomeScreen");
       } else {
@@ -87,19 +88,26 @@ export default function App() {
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <ImageBackground
-          source={require("../assets/images/IndexBackground.jpg")}
-          style={styles.backgroundImage}
-          resizeMode="cover"
+      <ImageBackground
+        source={require("../assets/images/IndexBackground.jpg")}
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      >
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoidingView}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
         >
-          <KeyboardAvoidingView
-            style={styles.keyboardAvoidingView}
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
+          <TouchableWithoutFeedback
+            onPress={Keyboard.dismiss}
+            accessible={false}
           >
             <ScrollView
-              contentContainerStyle={{ flexGrow: 1 }}
+              style={styles.scrollView}
+              contentContainerStyle={styles.scrollViewContent}
               keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              bounces={false}
             >
               <View style={styles.overlay}>
                 <View style={styles.content}>
@@ -154,9 +162,9 @@ export default function App() {
                 </View>
               </View>
             </ScrollView>
-          </KeyboardAvoidingView>
-        </ImageBackground>
-      </TouchableWithoutFeedback>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
+      </ImageBackground>
       {/* <Toast /> */}
     </SafeAreaView>
   );
@@ -165,34 +173,42 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    height: "100%",
     backgroundColor: COLORS.background,
   },
   backgroundImage: {
     flex: 1,
     width: "100%",
     height: "100%",
-    justifyContent: "center",
   },
   keyboardAvoidingView: {
     flex: 1,
-    justifyContent: "center",
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollViewContent: {
+    flexGrow: 1,
+    minHeight: "100%", // Ensures content takes full height
   },
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "flex-start", // Align content to the top
+    justifyContent: "flex-start",
     paddingHorizontal: 24,
-    paddingTop: 60, // Adjust as needed
+    paddingTop: 60,
     paddingBottom: 40,
+    minHeight: "100%", // Ensures overlay takes full height
   },
   content: {
     flex: 1,
-    justifyContent: "flex-start", // Align content to the top
+    justifyContent: "space-between", // Changed to space-between for better distribution
+    minHeight: 600, // Minimum height to ensure scrollability
   },
   headerSection: {
     alignItems: "center",
     marginTop: 15,
-    marginBottom: 200,
+    marginBottom: 50, // Reduced margin
   },
   welcomeTitle: {
     fontSize: 32,
@@ -212,7 +228,8 @@ const styles = StyleSheet.create({
     fontWeight: "300",
   },
   signInSection: {
-    marginBottom: 100,
+    marginBottom: 50, // Reduced margin
+    marginTop: "auto", // Push to bottom of available space
   },
   input: {
     height: 50,

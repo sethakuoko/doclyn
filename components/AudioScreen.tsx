@@ -1,126 +1,308 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
-  ScrollView,
   StyleSheet,
+  View,
   Text,
   TouchableOpacity,
-  View,
+  ScrollView,
+  Alert,
+  Share,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { Audio } from "expo-av";
+import * as Speech from "expo-speech";
+import * as Clipboard from "expo-clipboard";
+import { COLORS } from "../app/types";
+
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
 
 const AudioScreen: React.FC = () => {
-  const [isRecording, setIsRecording] = useState<boolean>(false);
-  const [transcribedText, setTranscribedText] = useState<string>("");
-  const [recordingTime, setRecordingTime] = useState<number>(0);
-  const router = useRouter();
+  const [isListening, setIsListening] = useState(false);
+  const [transcript, setTranscript] = useState("");
+  const [isRecording, setIsRecording] = useState(false);
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const recognitionRef = useRef<any>(null);
+  const recordingRef = useRef<Audio.Recording | null>(null);
 
-  const toggleRecording = (): void => {
-    setIsRecording(!isRecording);
-    if (!isRecording) {
-      // Start recording simulation
-      setRecordingTime(0);
-      setTranscribedText("");
-    } else {
-      // Stop recording simulation
-      setTranscribedText(
-        "This is a demo transcription. The actual audio-to-text functionality will be implemented later."
-      );
+  useEffect(() => {
+    requestPermissions();
+    initializeSpeechRecognition();
+  }, []);
+
+  const requestPermissions = async () => {
+    try {
+      const { status } = await Audio.requestPermissionsAsync();
+      setHasPermission(status === "granted");
+
+      if (status === "granted") {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true,
+        });
+      }
+    } catch (error) {
+      console.error("Error requesting permissions:", error);
+      setHasPermission(false);
     }
   };
 
-  const clearTranscription = (): void => {
-    setTranscribedText("");
-    setRecordingTime(0);
+  const initializeSpeechRecognition = () => {
+    // For web environments (if running in Expo web)
+    if (typeof window !== "undefined") {
+      const SpeechRecognition =
+        window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = "en-US";
+
+        recognition.onresult = (event: any) => {
+          let finalTranscript = "";
+          let interimTranscript = "";
+
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const result = event.results[i];
+            if (result.isFinal) {
+              finalTranscript += result[0].transcript + " ";
+            } else {
+              interimTranscript += result[0].transcript;
+            }
+          }
+
+          if (finalTranscript) {
+            setTranscript((prev: string) => prev + finalTranscript);
+          }
+        };
+
+        recognition.onerror = (event: any) => {
+          console.error("Speech recognition error:", event.error);
+          setIsListening(false);
+        };
+
+        recognition.onend = () => {
+          setIsListening(false);
+        };
+
+        recognitionRef.current = recognition;
+      }
+    }
   };
+
+  const startRecording = async () => {
+    try {
+      if (hasPermission === false) {
+        alert("Permission to access microphone was denied");
+        return;
+      }
+
+      if (hasPermission === null) {
+        const { status } = await Audio.requestPermissionsAsync();
+        if (status !== "granted") {
+          alert("Permission to access microphone was denied");
+          return;
+        }
+        setHasPermission(true);
+      }
+
+      const recording = new Audio.Recording();
+      await recording.prepareToRecordAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      await recording.startAsync();
+      recordingRef.current = recording;
+      setIsRecording(true);
+    } catch (error) {
+      console.error("Failed to start recording:", error);
+    }
+  };
+
+  const stopRecording = async () => {
+    try {
+      if (recordingRef.current) {
+        await recordingRef.current.stopAndUnloadAsync();
+        const uri = recordingRef.current.getURI();
+        recordingRef.current = null;
+        setIsRecording(false);
+
+        // For demo purposes, simulate speech-to-text conversion
+        // In a real implementation, you would send the audio file to a speech-to-text service
+        const simulatedTranscript =
+          "This is a simulated transcription of your audio recording. ";
+        setTranscript((prev) => prev + simulatedTranscript);
+        console.log("Recording saved to:", uri);
+      }
+    } catch (error) {
+      console.error("Failed to stop recording:", error);
+    }
+  };
+
+  const toggleListening = () => {
+    if (recognitionRef.current) {
+      // Web-based speech recognition
+      if (isListening) {
+        recognitionRef.current.stop();
+      } else {
+        recognitionRef.current.start();
+      }
+      setIsListening((prev) => !prev);
+    } else {
+      // Mobile recording (for actual implementation, you'd need to integrate
+      // with a speech-to-text service)
+      if (isRecording) {
+        stopRecording();
+      } else {
+        startRecording();
+      }
+    }
+  };
+
+  const clearTranscript = () => {
+    setTranscript("");
+  };
+
+  const speakText = () => {
+    if (transcript.trim()) {
+      Speech.speak(transcript, {
+        language: "en-US",
+        pitch: 1.0,
+        rate: 0.8,
+      });
+    }
+  };
+
+  const copyToClipboard = async () => {
+    if (transcript.trim()) {
+      try {
+        await Clipboard.setStringAsync(transcript.trim());
+        Alert.alert("Copied", "Text copied to clipboard");
+      } catch (error) {
+        Alert.alert("Error", "Failed to copy text to clipboard");
+      }
+    } else {
+      Alert.alert("No Text", "There is no text to copy");
+    }
+  };
+
+  const shareText = async () => {
+    if (transcript.trim()) {
+      try {
+        await Share.share({
+          message: transcript.trim(),
+          title: "Voice Transcription",
+        });
+      } catch (error) {
+        Alert.alert("Error", "Failed to share text");
+      }
+    } else {
+      Alert.alert("No Text", "There is no text to share");
+    }
+  };
+
+  if (hasPermission === null) {
+    return (
+      <View style={styles.permissionContainer}>
+        <Text style={styles.permissionText}>
+          Requesting microphone permissions...
+        </Text>
+      </View>
+    );
+  }
+
+  if (hasPermission === false) {
+    return (
+      <View style={styles.permissionContainer}>
+        <Text style={styles.permissionText}>Microphone access denied</Text>
+        <Text style={styles.permissionSubText}>
+          Please enable microphone permissions in your device settings
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      {/* Top App Bar with Home Button */}
       <View style={styles.header}>
-        <Text style={styles.title}>Audio to Text</Text>
-        <Text style={styles.subtitle}>
-          Tap the microphone to start recording
+        <Ionicons name="mic" size={32} color={COLORS.brand} />
+        <Text style={styles.title}>Voice to Text</Text>
+      </View>
+
+      <View style={styles.statusContainer}>
+        <View
+          style={[
+            styles.statusIndicator,
+            {
+              backgroundColor: isListening || isRecording ? "#ff4444" : "#666",
+            },
+          ]}
+        />
+        <Text style={styles.statusText}>
+          {isListening || isRecording
+            ? "Listening..."
+            : "Tap to start recording"}
         </Text>
       </View>
 
-      <View style={styles.recordingArea}>
-        <TouchableOpacity
-          style={[styles.micButton, isRecording && styles.micButtonActive]}
-          onPress={toggleRecording}
-          activeOpacity={0.8}
-        >
-          <View style={styles.micIcon}>
-            <View
-              style={[styles.micShape, isRecording && styles.micShapeActive]}
-            />
-            {isRecording && <View style={styles.recordingIndicator} />}
-          </View>
-        </TouchableOpacity>
+      <TouchableOpacity
+        style={[
+          styles.recordButton,
+          {
+            backgroundColor:
+              isListening || isRecording ? "#ff4444" : COLORS.brand,
+          },
+        ]}
+        onPress={toggleListening}
+      >
+        <Ionicons
+          name={isListening || isRecording ? "stop" : "mic"}
+          size={48}
+          color="white"
+        />
+      </TouchableOpacity>
 
-        <Text style={styles.recordingStatus}>
-          {isRecording ? "Recording..." : "Tap to Record"}
-        </Text>
-
-        {isRecording && (
-          <Text style={styles.timer}>
-            {Math.floor(recordingTime / 60)}:
-            {(recordingTime % 60).toString().padStart(2, "0")}
-          </Text>
-        )}
-      </View>
-
-      <View style={styles.transcriptionArea}>
-        <View style={styles.transcriptionHeader}>
-          <Text style={styles.transcriptionTitle}>Transcription</Text>
-          {transcribedText.length > 0 && (
-            <TouchableOpacity
-              onPress={clearTranscription}
-              style={styles.clearButton}
-            >
-              <Text style={styles.clearButtonText}>Clear</Text>
+      <View style={styles.transcriptContainer}>
+        <View style={styles.transcriptHeader}>
+          <Text style={styles.transcriptTitle}>Transcription</Text>
+          <View style={styles.transcriptActions}>
+            <TouchableOpacity onPress={speakText} style={styles.actionButton}>
+              <Ionicons name="volume-high" size={20} color={COLORS.brand} />
             </TouchableOpacity>
-          )}
+            <TouchableOpacity
+              onPress={copyToClipboard}
+              style={styles.actionButton}
+            >
+              <Ionicons name="copy" size={20} color={COLORS.brand} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={shareText} style={styles.actionButton}>
+              <Ionicons name="share" size={20} color={COLORS.brand} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={clearTranscript}
+              style={styles.actionButton}
+            >
+              <Ionicons name="trash" size={20} color={COLORS.brand} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <ScrollView
-          style={styles.transcriptionContainer}
-          showsVerticalScrollIndicator={false}
+          style={styles.transcriptScrollView}
+          showsVerticalScrollIndicator={true}
         >
-          <Text style={styles.transcriptionText}>
-            {transcribedText || "Your transcribed text will appear here..."}
+          <Text style={styles.transcriptText}>
+            {transcript || "Your voice transcription will appear here..."}
           </Text>
         </ScrollView>
       </View>
 
-      <View style={styles.actionButtons}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          disabled={!transcribedText}
-        >
-          <Text
-            style={[
-              styles.actionButtonText,
-              !transcribedText && styles.disabledText,
-            ]}
-          >
-            Save
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          disabled={!transcribedText}
-        >
-          <Text
-            style={[
-              styles.actionButtonText,
-              !transcribedText && styles.disabledText,
-            ]}
-          >
-            Share
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <Text style={styles.infoText}>
+        Speak clearly and close to your device's microphone for best results
+      </Text>
     </View>
   );
 };
@@ -128,137 +310,107 @@ const AudioScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1a1a1a", // Dark background
+    backgroundColor: COLORS.background,
     padding: 20,
   },
   header: {
     alignItems: "center",
-    marginBottom: 40,
+    marginBottom: 30,
+    marginTop: 20,
   },
   title: {
-    color: "#008080",
     fontSize: 24,
     fontWeight: "bold",
-    marginBottom: 8,
+    color: COLORS.textPrimary,
+    marginTop: 10,
   },
-  subtitle: {
-    color: "#cccccc", // Light gray text
-    fontSize: 16,
-    textAlign: "center",
-  },
-  recordingArea: {
+  statusContainer: {
+    flexDirection: "row",
     alignItems: "center",
-    marginBottom: 40,
+    justifyContent: "center",
+    marginBottom: 30,
   },
-  micButton: {
+  statusIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 10,
+  },
+  statusText: {
+    fontSize: 16,
+    color: COLORS.textSecondary,
+  },
+  recordButton: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: "#2a2a2a", // Dark button background
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 20,
-    borderWidth: 3,
-    borderColor: "#404040", // Dark border
+    alignSelf: "center",
+    marginBottom: 30,
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
-  micButtonActive: {
-    backgroundColor: "#008080",
-    borderColor: "#006666",
-  },
-  micIcon: {
-    position: "relative",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  micShape: {
-    width: 30,
-    height: 40,
-    backgroundColor: "#ffffff", // White mic shape
-    borderRadius: 15,
-  },
-  micShapeActive: {
-    backgroundColor: "#ffffff",
-  },
-  recordingIndicator: {
-    position: "absolute",
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 2,
-    borderColor: "#008080",
-    opacity: 0.7,
-  },
-  recordingStatus: {
-    color: "#ffffff", // White text
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 10,
-  },
-  timer: {
-    color: "#008080",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  transcriptionArea: {
+  transcriptContainer: {
     flex: 1,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: 12,
+    padding: 16,
     marginBottom: 20,
   },
-  transcriptionHeader: {
+  transcriptHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 15,
+    marginBottom: 12,
   },
-  transcriptionTitle: {
-    color: "#ffffff", // White text
+  transcriptTitle: {
     fontSize: 18,
     fontWeight: "600",
+    color: COLORS.textPrimary,
   },
-  clearButton: {
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    backgroundColor: "#2a2a2a", // Dark button background
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: "#404040", // Dark border
-  },
-  clearButtonText: {
-    color: "#008080",
-    fontSize: 14,
-  },
-  transcriptionContainer: {
-    flex: 1,
-    backgroundColor: "#2a2a2a", // Dark container background
-    borderRadius: 10,
-    padding: 15,
-    borderWidth: 1,
-    borderColor: "#404040", // Dark border
-  },
-  transcriptionText: {
-    color: "#ffffff", // White text
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  actionButtons: {
+  transcriptActions: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    paddingTop: 20,
   },
   actionButton: {
-    paddingHorizontal: 30,
-    paddingVertical: 12,
-    backgroundColor: "#008080",
-    borderRadius: 25,
-    minWidth: 100,
-    alignItems: "center",
+    padding: 8,
+    marginLeft: 8,
   },
-  actionButtonText: {
-    color: "#ffffff",
+  transcriptScrollView: {
+    flex: 1,
+    maxHeight: 200,
+  },
+  transcriptText: {
     fontSize: 16,
-    fontWeight: "600",
+    color: COLORS.textPrimary,
+    lineHeight: 24,
   },
-  disabledText: {
-    color: "#666666", // Darker gray for disabled state
+  infoText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textAlign: "center",
+    fontStyle: "italic",
+  },
+  permissionContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: COLORS.background,
+    padding: 20,
+  },
+  permissionText: {
+    color: COLORS.textPrimary,
+    fontSize: 18,
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  permissionSubText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    textAlign: "center",
   },
 });
 

@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { logout, getUserSession, setDefaultFilePrefix, getDefaultFilePrefix, setSaveOriginalsToPhotos, getSaveOriginalsToPhotos } from "../utils/storage";
+import { clearUserSession, getUserSession, setDefaultFilePrefix, getDefaultFilePrefix, setSaveOriginalsToPhotos, getSaveOriginalsToPhotos } from "../utils/storage";
 import { COLORS } from "./types";
 
 function SettingsScreen() {
@@ -21,16 +21,17 @@ function SettingsScreen() {
   // State for toggle switches
   const [saveOriginalsToPhotos, setSaveOriginalsToPhotosState] = useState(false);
   const [defaultFileName, setDefaultFileName] = useState("Scan");
-  const [userData, setUserData] = useState({ fullName: "Loading...", email: "Loading..." });
+  const [userData, setUserData] = useState({ username: "Loading...", email: "Loading..." });
 
   // Load user data from AsyncStorage
   useEffect(() => {
     const loadUserData = async () => {
       try {
         const session = await getUserSession();
-        if (session.fullName && session.email) {
+        if (session.email) {
+          const username = session.email.split('@')[0];
           setUserData({
-            fullName: session.fullName,
+            username: username,
             email: session.email
           });
         }
@@ -82,10 +83,10 @@ function SettingsScreen() {
 
   const handleSignOutPress = async () => {
     try {
-      await logout(router);
-    } catch (error) {
-      console.error('Error during logout:', error);
+      await clearUserSession();
       router.replace("/");
+    } catch (error) {
+      console.error('Error during sign out:', error);
     }
   };
   
@@ -129,7 +130,7 @@ function SettingsScreen() {
               </View>
             </View>
             <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{userData.fullName}</Text>
+              <Text style={styles.profileName}>{userData.username}</Text>
               <Text style={styles.profileEmail}>{userData.email}</Text>
             </View>
           </View>

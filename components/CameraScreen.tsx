@@ -6,28 +6,49 @@ import {
 } from "expo-camera";
 import * as MediaLibrary from "expo-media-library";
 import { useRouter } from "expo-router";
-import React, { useEffect, useImperativeHandle, useRef, useState, ForwardedRef } from "react";
-import { Alert, StyleSheet, Text, View, Modal, TouchableOpacity } from "react-native";
+import React, {
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  ForwardedRef,
+} from "react";
+import {
+  Alert,
+  StyleSheet,
+  Text,
+  View,
+  LayoutChangeEvent,
+  Dimensions,
+} from "react-native";
 import { PhotoResult } from "../app/types";
 import { requestMediaLibraryPermissions } from "../utils/permissions";
-import { getDefaultFilePrefix, getSaveOriginalsToPhotos } from "../utils/storage";
-import * as FileSystem from "expo-file-system";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Sharing from "expo-sharing";
+import {
+  getDefaultFilePrefix,
+  getSaveOriginalsToPhotos,
+} from "../utils/storage";
+import { Ionicons } from "@expo/vector-icons";
 
 interface CameraScreenProps {
   flashMode?: FlashMode;
 }
 
+const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+
 const CameraScreen = (props: CameraScreenProps, ref: ForwardedRef<any>) => {
   const [permission, requestPermission] = useCameraPermissions();
   const [cameraType, setCameraType] = useState<CameraType>("back");
-  const [flashMode, setFlashMode] = useState<FlashMode>(props.flashMode || "off");
+  const [flashMode, setFlashMode] = useState<FlashMode>(
+    props.flashMode || "off"
+  );
   const [isReady, setIsReady] = useState<boolean>(false);
+  const [cameraLayout, setCameraLayout] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
   const cameraRef = useRef<CameraView>(null);
   const router = useRouter();
 
-  // Update flash mode when props change
   useEffect(() => {
     if (props.flashMode) {
       setFlashMode(props.flashMode);
@@ -36,13 +57,13 @@ const CameraScreen = (props: CameraScreenProps, ref: ForwardedRef<any>) => {
 
   useEffect(() => {
     initializeCamera();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const initializeCamera = async (): Promise<void> => {
     try {
-      if (!permission?.granted) {
-        await requestPermission();
+      const cameraPermission = await requestPermission();
+      if (!cameraPermission.granted) {
+        Alert.alert("Error", "Camera permissions are not granted.");
       }
       await requestMediaLibraryPermissions();
       setIsReady(true);
@@ -64,21 +85,16 @@ const CameraScreen = (props: CameraScreenProps, ref: ForwardedRef<any>) => {
         skipProcessing: false,
       });
       if (photo && photo.uri) {
-        // Generate a unique name using the default prefix and current time
         let prefix = await getDefaultFilePrefix();
         const timestamp = Date.now();
         if (!prefix) prefix = "Scan";
-        let originalName = photo.uri.split("/").pop() || "";
-        originalName = originalName.replace(/^IMG[_-]?/i, "");
-        originalName = originalName.replace(/\.png$/i, "");
         const generatedName = `${prefix}_${timestamp}.pdf`;
-        // Check if we should save the original to the gallery
         const shouldSaveOriginal = await getSaveOriginalsToPhotos();
         if (shouldSaveOriginal) {
           try {
             await MediaLibrary.createAssetAsync(photo.uri);
           } catch (err) {
-            console.error('Failed to save original photo to gallery:', err);
+            console.error("Failed to save original photo to gallery:", err);
           }
         }
         router.push({
@@ -92,23 +108,12 @@ const CameraScreen = (props: CameraScreenProps, ref: ForwardedRef<any>) => {
     }
   };
 
-  const savePicture = async (photo: PhotoResult): Promise<void> => {
-    try {
-      const asset = await MediaLibrary.createAssetAsync(photo.uri);
-      await MediaLibrary.createAlbumAsync("Camera App", asset, false);
+  useImperativeHandle(ref, () => ({ takePicture }));
 
-      Alert.alert("Photo Saved", "Your photo has been saved to the gallery", [
-        { text: "OK" },
-      ]);
-    } catch (error) {
-      console.error("Error saving picture:", error);
-      Alert.alert("Error", "Failed to save picture");
-    }
+  const onCameraLayout = (event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setCameraLayout({ width, height });
   };
-
-  useImperativeHandle(ref, () => ({
-    takePicture,
-  }));
 
   if (!permission) {
     return (
@@ -133,13 +138,51 @@ const CameraScreen = (props: CameraScreenProps, ref: ForwardedRef<any>) => {
 
   return (
     <View style={styles.container}>
-      <CameraView
-        ref={cameraRef}
-        style={styles.camera}
-        facing={cameraType}
-        flash={flashMode}
-        ratio="16:9"
-      />
+      {/* Camera Container with Document Scanner Frame */}
+      <View style={styles.cameraContainer} onLayout={onCameraLayout}>
+        <CameraView
+          ref={cameraRef}
+          style={styles.camera}
+          facing={cameraType}
+          flash={flashMode}
+          ratio="16:9"
+        />
+
+        {/* Document Scanner Overlay */}
+        <View style={styles.scannerOverlay}>
+          {/* Full Screen Scanning Frame */}
+          <View style={styles.scanningFrame}>
+            {/* Corner Brackets */}
+            <View style={[styles.cornerBracket, styles.topLeft]} />
+            <View style={[styles.cornerBracket, styles.topRight]} />
+            <View style={[styles.cornerBracket, styles.bottomLeft]} />
+            <View style={[styles.cornerBracket, styles.bottomRight]} />
+
+            {/* Scanning Line Animation */}
+            <View style={styles.scanLine} />
+
+            {/* Document Icon */}
+            <View style={styles.documentIconContainer}>
+              <Ionicons
+                name="document-outline"
+                size={24}
+                color="rgba(255, 255, 255, 0.8)"
+              />
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Instructions */}
+      <View style={styles.instructionsContainer}>
+        {/* Instructions removed as requested */}
+      </View>
+
+      {/* Document Detection Indicator */}
+      <View style={styles.detectionIndicator}>
+        <View style={styles.detectionDot} />
+        <Text style={styles.detectionText}>Looking for document...</Text>
+      </View>
     </View>
   );
 };
@@ -147,30 +190,137 @@ const CameraScreen = (props: CameraScreenProps, ref: ForwardedRef<any>) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1a1a1a", // Dark background
+    backgroundColor: "#000",
+  },
+  cameraContainer: {
+    flex: 1,
+    width: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 0, // Extend to top app bar
+    marginBottom: 0, // Extend to bottom app bar
   },
   camera: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
   },
-  cameraOverlay: {
-    flex: 1,
-    backgroundColor: "transparent",
+  scannerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  scanningFrame: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative",
+  },
+  cornerBracket: {
+    position: "absolute",
+    width: 40,
+    height: 40,
+    borderColor: "#00CED1",
+    borderWidth: 4,
+  },
+  topLeft: {
+    top: 20,
+    left: 20,
+    borderRightWidth: 0,
+    borderBottomWidth: 0,
+  },
+  topRight: {
+    top: 20,
+    right: 20,
+    borderLeftWidth: 0,
+    borderBottomWidth: 0,
+  },
+  bottomLeft: {
+    bottom: 20,
+    left: 20,
+    borderRightWidth: 0,
+    borderTopWidth: 0,
+  },
+  bottomRight: {
+    bottom: 20,
+    right: 20,
+    borderLeftWidth: 0,
+    borderTopWidth: 0,
+  },
+  scanLine: {
+    position: "absolute",
+    top: "50%",
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: "#00CED1",
+    opacity: 0.8,
+  },
+  documentIconContainer: {
+    position: "absolute",
+    top: 20,
+    alignSelf: "center",
+  },
+  instructionsContainer: {
+    position: "absolute",
+    bottom: 120,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 20,
+  },
+  instructionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    borderRadius: 20,
+    marginHorizontal: 20,
+  },
+  instructionText: {
+    color: "#ffffff",
+    fontSize: 14,
+    marginLeft: 10,
+    fontWeight: "500",
+  },
+  detectionIndicator: {
+    position: "absolute",
+    top: 60,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  detectionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#FFA500",
+    marginRight: 8,
+  },
+  detectionText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "500",
   },
   permissionContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#1a1a1a", // Dark background
+    backgroundColor: "#1a1a1a",
     padding: 20,
   },
   permissionText: {
-    color: "#ffffff", // White text
+    color: "#ffffff",
     fontSize: 18,
     textAlign: "center",
     marginBottom: 10,
   },
   permissionSubText: {
-    color: "#cccccc", // Light gray text
+    color: "#cccccc",
     fontSize: 14,
     textAlign: "center",
   },
