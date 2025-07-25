@@ -20,7 +20,7 @@ import { SafeAreaView } from "react-native-safe-area-context"; // RECOMMENDED pa
 import * as FileSystem from "expo-file-system";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
-import { WebView } from 'react-native-webview';
+import { WebView } from "react-native-webview";
 import { COLORS } from "./types";
 import { getDefaultFilePrefix } from "../utils/storage";
 // @ts-ignore
@@ -77,7 +77,9 @@ const DoclynHomeScreen: React.FC = () => {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [pdfPreviews, setPdfPreviews] = useState<{ [id: number]: string }>({});
   const [itemModalVisible, setItemModalVisible] = useState(false);
-  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(
+    null
+  );
   const [defaultPrefix, setDefaultPrefix] = useState("");
   const [webViewHeight, setWebViewHeight] = useState(0);
   // Search state
@@ -120,7 +122,9 @@ const DoclynHomeScreen: React.FC = () => {
     const idsToDelete = Array.from(selectedDocs);
     let saved = await AsyncStorage.getItem("SAVED_PDFS");
     let pdfs = saved ? JSON.parse(saved) : [];
-    pdfs = pdfs.filter((pdf: any, idx: number) => !idsToDelete.includes(idx + 1));
+    pdfs = pdfs.filter(
+      (pdf: any, idx: number) => !idsToDelete.includes(idx + 1)
+    );
     await AsyncStorage.setItem("SAVED_PDFS", JSON.stringify(pdfs));
     setDocuments((docs) => docs.filter((doc) => !selectedDocs.has(doc.id)));
     handleCancelMultiSelect();
@@ -143,7 +147,9 @@ const DoclynHomeScreen: React.FC = () => {
         await Sharing.shareAsync(docsToShare[0].path);
         // Optionally, show a message to the user
         if (docsToShare.length > 1) {
-          alert("Sharing multiple files is not supported on all platforms. Only the first file was shared.");
+          alert(
+            "Sharing multiple files is not supported on all platforms. Only the first file was shared."
+          );
         }
       }
     } catch (err) {
@@ -182,7 +188,9 @@ const DoclynHomeScreen: React.FC = () => {
         const previews: { [id: number]: string } = {};
         for (const doc of documents) {
           try {
-            const base64 = await FileSystem.readAsStringAsync(doc.path, { encoding: FileSystem.EncodingType.Base64 });
+            const base64 = await FileSystem.readAsStringAsync(doc.path, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
             previews[doc.id] = getPdfHtml(base64);
           } catch (e) {
             previews[doc.id] = ""; // Use empty string on error
@@ -215,7 +223,7 @@ const DoclynHomeScreen: React.FC = () => {
         return;
       }
       // Rank by best match (simple: includes, then startsWith, then exact)
-      const filtered = documents.filter(doc =>
+      const filtered = documents.filter((doc) =>
         doc.title.toLowerCase().includes(q)
       );
       setSearchResults(filtered);
@@ -249,12 +257,15 @@ const DoclynHomeScreen: React.FC = () => {
     const doc = documents.find((d) => d.id === docId);
     if (!doc) return;
     // Only allow for PDFs
-    if (!doc.path.toLowerCase().endsWith('.pdf')) return;
+    if (!doc.path.toLowerCase().endsWith(".pdf")) return;
     try {
       // Try to open with the default app
       await Linking.openURL(doc.path);
     } catch (err) {
-      Alert.alert('No PDF Viewer', 'No app found to view PDF files on this device.');
+      Alert.alert(
+        "No PDF Viewer",
+        "No app found to view PDF files on this device."
+      );
     }
   };
 
@@ -278,12 +289,13 @@ const DoclynHomeScreen: React.FC = () => {
   // Effect to capture and save when captureDocId is set and readyToCapture is true
   useEffect(() => {
     const doCapture = async () => {
-      if (captureDocId === null || !readyToCapture || webViewHeight === 0) return;
-      
+      if (captureDocId === null || !readyToCapture || webViewHeight === 0)
+        return;
+
       try {
         // Wait for WebView to be fully rendered with proper height
         await new Promise((res) => setTimeout(res, 1500));
-        
+
         if (viewShotRef.current) {
           const uri = await viewShotRef.current.capture();
           const asset = await MediaLibrary.createAssetAsync(uri);
@@ -300,13 +312,17 @@ const DoclynHomeScreen: React.FC = () => {
         setWebViewHeight(0);
       }
     };
-    if (captureDocId !== null && readyToCapture && webViewHeight > 0) doCapture();
+    if (captureDocId !== null && readyToCapture && webViewHeight > 0)
+      doCapture();
   }, [captureDocId, readyToCapture, webViewHeight]);
 
   const handleDocumentClick = (docId: number): void => {
     const doc = documents.find((d) => d.id === docId);
     if (doc) {
-      router.push({ pathname: "/PhotoDetailsScreen", params: { imagePath: doc.path } });
+      router.push({
+        pathname: "/DocumentDetailsScreen",
+        params: { imagePath: doc.path },
+      });
     }
   };
 
@@ -339,25 +355,39 @@ const DoclynHomeScreen: React.FC = () => {
     return (
       <View key={doc.id} style={styles.documentContainer}>
         <TouchableOpacity
-          onPress={() => isMultiSelect ? toggleDocSelection(doc.id) : handleDocumentClick(doc.id)}
-          style={[styles.documentImageContainer, isMultiSelect && isSelected && { borderColor: COLORS.brand, borderWidth: 2 }]}
+          onPress={() =>
+            isMultiSelect
+              ? toggleDocSelection(doc.id)
+              : handleDocumentClick(doc.id)
+          }
+          style={[
+            styles.documentImageContainer,
+            isMultiSelect &&
+              isSelected && { borderColor: COLORS.brand, borderWidth: 2 },
+          ]}
         >
           {isMultiSelect && (
-            <View style={{
-              position: 'absolute',
-              top: 4,
-              left: 4,
-              zIndex: 2,
-              width: 20,
-              height: 20,
-              borderRadius: 10,
-              backgroundColor: isSelected ? COLORS.brand : COLORS.surfaceSecondary,
-              borderWidth: 1,
-              borderColor: isSelected ? COLORS.brand : COLORS.border,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
+            <View
+              style={{
+                position: "absolute",
+                top: 4,
+                left: 4,
+                zIndex: 2,
+                width: 20,
+                height: 20,
+                borderRadius: 10,
+                backgroundColor: isSelected
+                  ? COLORS.brand
+                  : COLORS.surfaceSecondary,
+                borderWidth: 1,
+                borderColor: isSelected ? COLORS.brand : COLORS.border,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {isSelected && (
+                <Ionicons name="checkmark" size={14} color="#fff" />
+              )}
             </View>
           )}
           {/* PDF Preview using WebView with base64 HTML */}
@@ -370,12 +400,19 @@ const DoclynHomeScreen: React.FC = () => {
               domStorageEnabled
               startInLoadingState
               renderError={() => (
-                <View style={styles.documentImage}><Text>Preview unavailable</Text></View>
+                <View style={styles.documentImage}>
+                  <Text>Preview unavailable</Text>
+                </View>
               )}
               scrollEnabled={false}
             />
           ) : (
-            <View style={[styles.documentImage, { justifyContent: 'center', alignItems: 'center' }]}>
+            <View
+              style={[
+                styles.documentImage,
+                { justifyContent: "center", alignItems: "center" },
+              ]}
+            >
               <Text>Loading...</Text>
             </View>
           )}
@@ -385,18 +422,39 @@ const DoclynHomeScreen: React.FC = () => {
           <Text style={styles.documentDate}>{doc.date}</Text>
           <View style={styles.documentActions}>
             <TouchableOpacity onPress={() => handleShareClick(doc.id)}>
-              <Ionicons name="share-outline" size={20} color={COLORS.textSecondary} />
+              <Ionicons
+                name="share-outline"
+                size={20}
+                color={COLORS.textSecondary}
+              />
             </TouchableOpacity>
             {/* View option for opening with another app */}
             <TouchableOpacity onPress={() => handleViewClick(doc.id)}>
-              <Ionicons name="eye-outline" size={20} color={COLORS.textSecondary} />
+              <Ionicons
+                name="eye-outline"
+                size={20}
+                color={COLORS.textSecondary}
+              />
             </TouchableOpacity>
             <TouchableOpacity onPress={() => handleSaveAsJPEGClick(doc.id)}>
-              <Ionicons name="image-outline" size={20} color={COLORS.textSecondary} />
+              <Ionicons
+                name="image-outline"
+                size={20}
+                color={COLORS.textSecondary}
+              />
             </TouchableOpacity>
             {/* More options button restored */}
-            <TouchableOpacity onPress={() => { setSelectedDocument(doc); setItemModalVisible(true); }}>
-              <Ionicons name="ellipsis-vertical" size={20} color={COLORS.textSecondary} />
+            <TouchableOpacity
+              onPress={() => {
+                setSelectedDocument(doc);
+                setItemModalVisible(true);
+              }}
+            >
+              <Ionicons
+                name="ellipsis-vertical"
+                size={20}
+                color={COLORS.textSecondary}
+              />
             </TouchableOpacity>
           </View>
         </View>
@@ -409,15 +467,22 @@ const DoclynHomeScreen: React.FC = () => {
     if (isSearching) {
       return (
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => {
-            setIsSearching(false);
-            setSearchQuery("");
-            setSearchResults([]);
-            setSearchSubmitted(false);
-          }} style={styles.headerButton}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.textSecondary} />
+          <TouchableOpacity
+            onPress={() => {
+              setIsSearching(false);
+              setSearchQuery("");
+              setSearchResults([]);
+              setSearchSubmitted(false);
+            }}
+            style={styles.headerButton}
+          >
+            <Ionicons
+              name="arrow-back"
+              size={24}
+              color={COLORS.textSecondary}
+            />
           </TouchableOpacity>
-          <View style={[styles.searchContainer, { flex: 1, marginLeft: 8 }]}> 
+          <View style={[styles.searchContainer, { flex: 1, marginLeft: 8 }]}>
             {!searchSubmitted ? (
               <TextInput
                 style={styles.searchInput}
@@ -430,7 +495,9 @@ const DoclynHomeScreen: React.FC = () => {
                 returnKeyType="search"
               />
             ) : (
-              <Text style={styles.searchInput} numberOfLines={1}>{searchQuery}</Text>
+              <Text style={styles.searchInput} numberOfLines={1}>
+                {searchQuery}
+              </Text>
             )}
           </View>
         </View>
@@ -441,13 +508,26 @@ const DoclynHomeScreen: React.FC = () => {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Select Items</Text>
           <View style={styles.headerActions}>
-            <TouchableOpacity onPress={handleShareSelected} style={styles.headerButton}>
-              <Ionicons name="share-outline" size={24} color={COLORS.textSecondary} />
+            <TouchableOpacity
+              onPress={handleShareSelected}
+              style={styles.headerButton}
+            >
+              <Ionicons
+                name="share-outline"
+                size={24}
+                color={COLORS.textSecondary}
+              />
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleDeleteSelected} style={styles.headerButton}>
+            <TouchableOpacity
+              onPress={handleDeleteSelected}
+              style={styles.headerButton}
+            >
               <Ionicons name="trash-outline" size={24} color={COLORS.error} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleCancelMultiSelect} style={styles.headerButton}>
+            <TouchableOpacity
+              onPress={handleCancelMultiSelect}
+              style={styles.headerButton}
+            >
               <Ionicons name="close" size={24} color={COLORS.textSecondary} />
             </TouchableOpacity>
           </View>
@@ -475,7 +555,11 @@ const DoclynHomeScreen: React.FC = () => {
             onPress={() => setModalVisible(true)}
             style={styles.headerButton}
           >
-            <Ionicons name="ellipsis-vertical" size={24} color={COLORS.textSecondary} />
+            <Ionicons
+              name="ellipsis-vertical"
+              size={24}
+              color={COLORS.textSecondary}
+            />
           </TouchableOpacity>
         </View>
       </View>
@@ -484,7 +568,11 @@ const DoclynHomeScreen: React.FC = () => {
 
   // Render document list (filtered or not)
   const docsToShow = isSearching
-    ? (searchSubmitted ? searchResults : searchResults.length > 0 ? searchResults : [])
+    ? searchSubmitted
+      ? searchResults
+      : searchResults.length > 0
+      ? searchResults
+      : []
     : documents;
 
   return (
@@ -507,7 +595,11 @@ const DoclynHomeScreen: React.FC = () => {
       >
         {docsToShow.length === 0 ? (
           <View style={styles.noDocumentsContainer}>
-            <Text style={styles.noDocumentsText}>{isSearching && searchQuery ? "No results found." : "No saved PDFs found."}</Text>
+            <Text style={styles.noDocumentsText}>
+              {isSearching && searchQuery
+                ? "No results found."
+                : "No saved PDFs found."}
+            </Text>
           </View>
         ) : (
           docsToShow.map((doc) => renderDocumentItem(doc))
@@ -516,32 +608,59 @@ const DoclynHomeScreen: React.FC = () => {
 
       {/* Loading bar for background capture */}
       {isCapturing && (
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999, backgroundColor: 'rgba(0,0,0,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 999,
+            backgroundColor: "rgba(0,0,0,0.2)",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
           <ActivityIndicator size="large" color={COLORS.brand} />
-          <Text style={{ color: COLORS.textPrimary, marginTop: 10 }}>Saving image to gallery...</Text>
+          <Text style={{ color: COLORS.textPrimary, marginTop: 10 }}>
+            Saving image to gallery...
+          </Text>
         </View>
       )}
 
       {/* Hidden ViewShot and WebView for PDF-to-image capture */}
-      {captureDocId !== null && (() => {
-  const doc = documents.find((d) => d.id === captureDocId);
-  if (!doc || !pdfPreviews[doc.id]) return null;
-  
-  return (
-    <View style={{ position: 'absolute', left: -9999, width: 400, height: 600 }}>
-      <ViewShot ref={viewShotRef} options={{ format: 'jpg', quality: 0.95 }}>
-        <View style={{ width: 400, height: 600, backgroundColor: '#fff' }}>
-          <WebView
-            originWhitelist={["*"]}
-            source={{ html: pdfPreviews[doc.id] }}
-            style={{ width: 400, height: 600 }}
-            javaScriptEnabled
-            domStorageEnabled
-            startInLoadingState={false}
-            scrollEnabled={false}
-            onLoadEnd={() => {
-              // Inject JavaScript to get actual content height
-              const script = `
+      {captureDocId !== null &&
+        (() => {
+          const doc = documents.find((d) => d.id === captureDocId);
+          if (!doc || !pdfPreviews[doc.id]) return null;
+
+          return (
+            <View
+              style={{
+                position: "absolute",
+                left: -9999,
+                width: 400,
+                height: 600,
+              }}
+            >
+              <ViewShot
+                ref={viewShotRef}
+                options={{ format: "jpg", quality: 0.95 }}
+              >
+                <View
+                  style={{ width: 400, height: 600, backgroundColor: "#fff" }}
+                >
+                  <WebView
+                    originWhitelist={["*"]}
+                    source={{ html: pdfPreviews[doc.id] }}
+                    style={{ width: 400, height: 600 }}
+                    javaScriptEnabled
+                    domStorageEnabled
+                    startInLoadingState={false}
+                    scrollEnabled={false}
+                    onLoadEnd={() => {
+                      // Inject JavaScript to get actual content height
+                      const script = `
                 (function() {
                   const height = Math.max(
                     document.body.scrollHeight,
@@ -553,36 +672,36 @@ const DoclynHomeScreen: React.FC = () => {
                   window.ReactNativeWebView.postMessage(JSON.stringify({type: 'height', value: height}));
                 })();
               `;
-              if (viewShotRef.current) {
-                setTimeout(() => {
-                  // Use injectedJavaScript or send message to check height
-                  setWebViewHeight(600); // Fallback to container height
-                  setTimeout(() => setReadyToCapture(true), 800);
-                }, 800);
-              }
-            }}
-            onMessage={(event) => {
-              try {
-                const data = JSON.parse(event.nativeEvent.data);
-                if (data.type === 'height' && data.value > 0) {
-                  setWebViewHeight(data.value);
-                }
-              } catch (e) {
-                console.log('Message parsing error:', e);
-              }
-            }}
-            onError={() => {
-              console.error("WebView error during capture");
-              setIsCapturing(false);
-              setCaptureDocId(null);
-              setWebViewHeight(0);
-            }}
-          />
-        </View>
-      </ViewShot>
-    </View>
-  );
-})()}
+                      if (viewShotRef.current) {
+                        setTimeout(() => {
+                          // Use injectedJavaScript or send message to check height
+                          setWebViewHeight(600); // Fallback to container height
+                          setTimeout(() => setReadyToCapture(true), 800);
+                        }, 800);
+                      }
+                    }}
+                    onMessage={(event) => {
+                      try {
+                        const data = JSON.parse(event.nativeEvent.data);
+                        if (data.type === "height" && data.value > 0) {
+                          setWebViewHeight(data.value);
+                        }
+                      } catch (e) {
+                        console.log("Message parsing error:", e);
+                      }
+                    }}
+                    onError={() => {
+                      console.error("WebView error during capture");
+                      setIsCapturing(false);
+                      setCaptureDocId(null);
+                      setWebViewHeight(0);
+                    }}
+                  />
+                </View>
+              </ViewShot>
+            </View>
+          );
+        })()}
 
       <DocumentOptionsModal
         visible={itemModalVisible}
@@ -590,11 +709,17 @@ const DoclynHomeScreen: React.FC = () => {
         document={selectedDocument}
         onDocumentChange={(updated, deleted) => {
           if (deleted) {
-            setDocuments((docs) => docs.filter((doc) => doc.id !== selectedDocument?.id));
+            setDocuments((docs) =>
+              docs.filter((doc) => doc.id !== selectedDocument?.id)
+            );
             setItemModalVisible(false);
             setSelectedDocument(null);
           } else if (updated) {
-            setDocuments((docs) => docs.map((doc) => doc.id === updated.id ? { ...doc, title: updated.title } : doc));
+            setDocuments((docs) =>
+              docs.map((doc) =>
+                doc.id === updated.id ? { ...doc, title: updated.title } : doc
+              )
+            );
             setSelectedDocument(updated);
           }
         }}
@@ -744,8 +869,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: COLORS.surfaceSecondary,
     borderRadius: 10,
     paddingHorizontal: 10,

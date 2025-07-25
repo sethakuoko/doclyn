@@ -38,7 +38,7 @@ interface SavedPDF {
   ocrText?: string;
 }
 
-export default function PhotoDetailsScreen() {
+const DocumentDetailsScreen = () => {
   const router = useRouter();
   let { imagePath, pdfPath } = useLocalSearchParams();
 
@@ -183,7 +183,7 @@ export default function PhotoDetailsScreen() {
   const handleZoomIn = () => setZoom((z) => Math.min(z + 0.2, 3));
   const handleZoomOut = () => setZoom((z) => Math.max(z - 0.2, 0.5));
 
-  // Check if copy text button should be enabled
+  console.log("filePath", filePath);
 
   return (
     <View style={styles.container}>
@@ -214,8 +214,6 @@ export default function PhotoDetailsScreen() {
       <View style={styles.titleContainer}>
         <Text style={styles.titleText}>{getFileName(filePath)} PDF</Text>
       </View>
-
-      {/* PDF Content - fills between app bar and bottom bar, scrollable if needed */}
       <View style={styles.pdfContainer}>
         <TouchableOpacity
           style={{ flex: 1 }}
@@ -331,9 +329,11 @@ export default function PhotoDetailsScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <Text>DocumentDetailsScreen</Text>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -461,3 +461,5 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
   },
 });
+
+export default DocumentDetailsScreen;

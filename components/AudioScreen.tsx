@@ -7,12 +7,24 @@ import {
   ScrollView,
   Alert,
   Share,
+  ActivityIndicator,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { Audio } from "expo-av";
 import * as Speech from "expo-speech";
 import * as Clipboard from "expo-clipboard";
 import { COLORS } from "../app/types";
+import axios from "axios";
+import * as FileSystem from "expo-file-system";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
+
+// TODO: Replace with a secure way to provide your API key (e.g., environment variable)
+const OPENAI_API_KEY =
+  "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";
+
+// TODO: Replace with a secure way to provide your Google API key (e.g., environment variable)
+const GOOGLE_API_KEY = "AIzaSyA_EoslAD2Ih39QR1RWfDnqqeaOfIUNLDE";
 
 declare global {
   interface Window {
@@ -28,6 +40,8 @@ const AudioScreen: React.FC = () => {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const recognitionRef = useRef<any>(null);
   const recordingRef = useRef<Audio.Recording | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [transcriptionFailed, setTranscriptionFailed] = useState(false);
 
   useEffect(() => {
     requestPermissions();
@@ -111,9 +125,31 @@ const AudioScreen: React.FC = () => {
       }
 
       const recording = new Audio.Recording();
-      await recording.prepareToRecordAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
+      await recording.prepareToRecordAsync({
+        android: {
+          extension: ".wav",
+          outputFormat: 3, // OutputFormat.DEFAULT = 3 → linear PCM (WAV)
+          audioEncoder: 1, // AudioEncoder.PCM_16BIT = 1
+          sampleRate: 16000,
+          numberOfChannels: 1,
+          bitRate: 256000,
+        },
+        ios: {
+          extension: ".wav",
+          audioQuality: 2, // AVAudioQuality.high = 2
+          sampleRate: 44100,
+          numberOfChannels: 1,
+          bitRate: 256000,
+          linearPCMBitDepth: 16,
+          linearPCMIsBigEndian: false,
+          linearPCMIsFloat: false,
+        },
+        web: {
+          mimeType: "audio/webm",
+          bitsPerSecond: 128000,
+        },
+        isMeteringEnabled: false,
+      });
       await recording.startAsync();
       recordingRef.current = recording;
       setIsRecording(true);
@@ -124,21 +160,91 @@ const AudioScreen: React.FC = () => {
 
   const stopRecording = async () => {
     try {
-      if (recordingRef.current) {
-        await recordingRef.current.stopAndUnloadAsync();
-        const uri = recordingRef.current.getURI();
-        recordingRef.current = null;
-        setIsRecording(false);
+      if (!recordingRef.current) return;
 
-        // For demo purposes, simulate speech-to-text conversion
-        // In a real implementation, you would send the audio file to a speech-to-text service
-        const simulatedTranscript =
-          "This is a simulated transcription of your audio recording. ";
-        setTranscript((prev) => prev + simulatedTranscript);
-        console.log("Recording saved to:", uri);
+      await recordingRef.current.stopAndUnloadAsync();
+      const uri = recordingRef.current.getURI();
+      recordingRef.current = null;
+      setIsRecording(false);
+
+      if (!uri) {
+        Alert.alert("Error", "Recording URI is null.");
+        return;
       }
+
+      setIsTranscribing(true);
+      setTranscriptionFailed(false);
+      console.log("🎤 Recorded URI:", uri);
+
+      // 1️⃣ Try Google STT First
+      try {
+        const base64Audio = await FileSystem.readAsStringAsync(uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        const googleResponse = await axios.post(
+          `https://speech.googleapis.com/v1/speech:recognize?key=${GOOGLE_API_KEY}`,
+          {
+            config: {
+              encoding: "LINEAR16",
+              sampleRateHertz: 44100,
+              languageCode: "en-US",
+              enableAutomaticPunctuation: true,
+            },
+            audio: {
+              content: base64Audio,
+            },
+          }
+        );
+
+        const alternatives =
+          googleResponse.data.results?.[0]?.alternatives ?? [];
+
+        if (alternatives.length) {
+          setTranscript(alternatives[0].transcript);
+          setIsTranscribing(false);
+          return;
+        } else {
+          throw new Error("No transcription found from Google.");
+        }
+      } catch (googleError) {
+        setTranscriptionFailed(true);
+        console.warn("Google STT failed, trying OpenAI...", googleError);
+      }
+
+      // 2️⃣ Fallback: Try OpenAI Whisper
+      const formData = new FormData();
+      formData.append("file", {
+        uri,
+        name: "audio.wav",
+        type: "audio/wav",
+      } as any);
+      formData.append("model", "whisper-1");
+
+      try {
+        const openaiResponse = await axios.post(
+          "https://api.openai.com/v1/audio/transcriptions",
+          formData,
+          {
+            headers: {
+              Authorization: `Bearer ${OPENAI_API_KEY}`,
+              "Content-Type": "multipart/form-data",
+            },
+            timeout: 30000,
+          }
+        );
+
+        const result = openaiResponse.data.text;
+        setTranscript(result);
+      } catch (openaiError) {
+        console.error("OpenAI transcription failed", openaiError);
+        Alert.alert("Transcription Failed", "Both engines failed.");
+      }
+
+      setIsTranscribing(false);
     } catch (error) {
-      console.error("Failed to stop recording:", error);
+      console.error("stopRecording error", error);
+      setIsTranscribing(false);
     }
   };
 
@@ -167,13 +273,35 @@ const AudioScreen: React.FC = () => {
   };
 
   const speakText = () => {
-    if (transcript.trim()) {
+    try {
+      if (!transcript.trim()) {
+        // Speak the error aloud if there's no transcript
+        Speech.speak("An error occurred. Please try again.");
+        return;
+      }
+
+      Speech.stop(); // Stop any ongoing speech
+
+      // Try speaking the transcript
       Speech.speak(transcript, {
         language: "en-US",
         pitch: 1.0,
-        rate: 0.8,
+        rate: 0.9,
+        onError: () => {
+          Speech.speak("An error occurred. Please try again.");
+        },
       });
+    } catch (err) {
+      console.error("Speech error:", err);
+      Speech.speak("An error occurred. Please try again.");
     }
+  };
+
+  const exportToPDF = async () => {
+    if (!transcript.trim()) return;
+    const html = `<html><body><pre>${transcript}</pre></body></html>`;
+    const { uri } = await Print.printToFileAsync({ html });
+    await Sharing.shareAsync(uri);
   };
 
   const copyToClipboard = async () => {
@@ -269,20 +397,37 @@ const AudioScreen: React.FC = () => {
         <View style={styles.transcriptHeader}>
           <Text style={styles.transcriptTitle}>Transcription</Text>
           <View style={styles.transcriptActions}>
-            <TouchableOpacity onPress={speakText} style={styles.actionButton}>
+            <TouchableOpacity
+              onPress={speakText}
+              disabled={isRecording || isTranscribing}
+              style={styles.actionButton}
+            >
               <Ionicons name="volume-high" size={20} color={COLORS.brand} />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={copyToClipboard}
+              disabled={isRecording || isTranscribing}
               style={styles.actionButton}
             >
               <Ionicons name="copy" size={20} color={COLORS.brand} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={shareText} style={styles.actionButton}>
+            <TouchableOpacity
+              onPress={shareText}
+              disabled={isRecording || isTranscribing}
+              style={styles.actionButton}
+            >
               <Ionicons name="share" size={20} color={COLORS.brand} />
             </TouchableOpacity>
             <TouchableOpacity
+              onPress={exportToPDF}
+              disabled={isRecording || isTranscribing}
+              style={styles.actionButton}
+            >
+              <Ionicons name="document-text" size={20} color={COLORS.brand} />
+            </TouchableOpacity>
+            <TouchableOpacity
               onPress={clearTranscript}
+              disabled={isRecording || isTranscribing}
               style={styles.actionButton}
             >
               <Ionicons name="trash" size={20} color={COLORS.brand} />
@@ -294,6 +439,16 @@ const AudioScreen: React.FC = () => {
           style={styles.transcriptScrollView}
           showsVerticalScrollIndicator={true}
         >
+          {isTranscribing && (
+            <View style={{ alignItems: "center", marginVertical: 10 }}>
+              <ActivityIndicator size="large" color="#00f" />
+              {transcriptionFailed && (
+                <Text style={{ color: "orange", marginTop: 6 }}>
+                  Google STT failed, retrying with OpenAI...
+                </Text>
+              )}
+            </View>
+          )}
           <Text style={styles.transcriptText}>
             {transcript || "Your voice transcription will appear here..."}
           </Text>
@@ -376,8 +531,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   actionButton: {
-    padding: 8,
-    marginLeft: 8,
+    padding: 5,
+    marginLeft: 5,
   },
   transcriptScrollView: {
     flex: 1,
