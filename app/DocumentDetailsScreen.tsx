@@ -253,22 +253,55 @@ const DocumentDetailsScreen = () => {
     ]);
   };
 
+  // FIXED: Open PDF in external app
   const handleViewInApp = async () => {
     try {
       if (pdfUri) {
-        await Linking.openURL(pdfUri);
+        // Check if file exists first
+        const fileInfo = await FileSystem.getInfoAsync(pdfUri);
+        if (!fileInfo.exists) {
+          Alert.alert("File Not Found", "The PDF file could not be found.");
+          return;
+        }
+
+        // Try to open the PDF file directly
+        const canOpen = await Linking.canOpenURL(pdfUri);
+        if (canOpen) {
+          await Linking.openURL(pdfUri);
+        } else {
+          // If direct opening fails, try using file:// scheme
+          const fileUrl = pdfUri.startsWith('file://') ? pdfUri : `file://${pdfUri}`;
+          await Linking.openURL(fileUrl);
+        }
+      } else {
+        Alert.alert("No PDF Available", "No PDF file is available to open.");
       }
     } catch (err) {
+      console.error("Error opening PDF in external app:", err);
       Alert.alert(
-        "No PDF Viewer",
-        "No app found to view PDF files on this device. Tap on the document to view as PDF."
+        "No PDF Viewer Found",
+        "No app found to view PDF files on this device. Please install a PDF viewer app from the app store."
       );
     }
   };
 
-  // PDF viewer options
-  const handleZoomIn = () => setZoom((z) => Math.min(z + 0.2, 3));
-  const handleZoomOut = () => setZoom((z) => Math.max(z - 0.2, 0.5));
+  // FIXED: Implement actual zoom in functionality
+  const handleZoomIn = () => {
+    setZoom((prevZoom) => {
+      const newZoom = Math.min(prevZoom + 0.2, 3); // Max zoom 3x
+      console.log(`Zooming in: ${prevZoom} -> ${newZoom}`);
+      return newZoom;
+    });
+  };
+
+  // FIXED: Implement actual zoom out functionality
+  const handleZoomOut = () => {
+    setZoom((prevZoom) => {
+      const newZoom = Math.max(prevZoom - 0.2, 0.5); // Min zoom 0.5x
+      console.log(`Zooming out: ${prevZoom} -> ${newZoom}`);
+      return newZoom;
+    });
+  };
 
   console.log("filePath", pdfUri);
 
@@ -319,7 +352,13 @@ const DocumentDetailsScreen = () => {
             {imageUri ? (
               <Image
                 source={{ uri: imageUri }}
-                style={{ flex: 1, width: "100%", height: "100%", resizeMode: "contain" }}
+                style={{
+                  flex: 1,
+                  width: "100%",
+                  height: "100%",
+                  resizeMode: "contain",
+                  transform: [{ scale: zoom }]  // FIXED: Apply zoom transform
+                }}
               />
             ) : (
               <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#000" }}>
@@ -373,18 +412,30 @@ const DocumentDetailsScreen = () => {
           <View style={styles.optionsSheet}>
             <TouchableOpacity
               style={styles.optionsItem}
-              onPress={handleViewInApp}
+              onPress={() => {
+                setMoreOptionsVisible(false);
+                handleViewInApp();
+              }}
             >
               <Ionicons name="eye-outline" size={20} color="#222" />
               <Text style={styles.optionsText}>Open in another app</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.optionsItem} onPress={handleZoomIn}>
+            <TouchableOpacity 
+              style={styles.optionsItem} 
+              onPress={() => {
+                setMoreOptionsVisible(false);
+                handleZoomIn();
+              }}
+            >
               <Ionicons name="add" size={20} color="#222" />
               <Text style={styles.optionsText}>Zoom In</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.optionsItem}
-              onPress={handleZoomOut}
+              onPress={() => {
+                setMoreOptionsVisible(false);
+                handleZoomOut();
+              }}
             >
               <Ionicons name="remove" size={20} color="#222" />
               <Text style={styles.optionsText}>Zoom Out</Text>
