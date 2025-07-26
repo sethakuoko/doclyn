@@ -24,6 +24,14 @@ export interface PhotoResult {
   height: number;
 }
 
+export interface SavedDocument {
+  name: string;
+  imagePath: string;
+  pdfPath: string;
+  date: string;
+  ocrText?: string;
+}
+
 // Centralized color palette for dark theme and brand colors
 export const COLORS = {
   // Brand

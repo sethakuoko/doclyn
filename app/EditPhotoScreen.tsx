@@ -54,27 +54,32 @@ interface EditState {
   imageDimensions: { width: number; height: number } | null;
 }
 
+// Helper to generate the display name for the file (no extension)
+const getDisplayFileName = (prefix: string, number: string) => {
+  if (prefix && prefix.trim() !== "") {
+    return `${prefix.trim()}_${number}`;
+  } else {
+    return number;
+  }
+};
+
 const EditPhotoScreen = () => {
   const { uri, generatedName, from } = useLocalSearchParams();
   const router = useRouter();
   const imageUri = typeof uri === "string" ? uri : undefined;
-  // Get the default prefix synchronously (will be set in useEffect)
+  
+  // Get the default prefix
   const [defaultPrefix, setDefaultPrefix] = useState("");
   useEffect(() => {
     getDefaultFilePrefix().then(prefix => setDefaultPrefix(prefix || ""));
   }, []);
 
-  let initialName = typeof generatedName === "string" && generatedName
-    ? generatedName
-    : (imageUri ? imageUri.split("/").pop() : "Untitled");
-  // If user has set a prefix, strip any IMG prefix from the name
-  if (defaultPrefix && initialName) {
-    initialName = initialName.replace(/^IMG[_-]?/i, "");
-  }
-  // If no user prefix and name starts with IMG, keep as is, else fallback to Scan
-  if (!defaultPrefix && (!initialName || !/^IMG[_-]?/i.test(initialName))) {
-    initialName = `Scan${Date.now()}`;
-  }
+  // Generate initial display name based on current prefix and timestamp
+  const [displayFileName, setDisplayFileName] = useState("");
+  useEffect(() => {
+    const uniqueNumber = Date.now().toString();
+    setDisplayFileName(getDisplayFileName(defaultPrefix, uniqueNumber));
+  }, [defaultPrefix]);
   
   const [selectedTool, setSelectedTool] = useState<string | null>(null);
   const [editState, setEditState] = useState<EditState>({
@@ -113,7 +118,12 @@ const EditPhotoScreen = () => {
 
   // 1. Add state for editing the image name
   const [isEditingName, setIsEditingName] = useState(false);
-  const [editableName, setEditableName] = useState(initialName || "Untitled");
+  const [editableName, setEditableName] = useState(displayFileName);
+
+  // Update editableName when displayFileName changes
+  useEffect(() => {
+    setEditableName(displayFileName);
+  }, [displayFileName]);
 
   // 2. Add state for showing the 3-dots menu
   const [showMenu, setShowMenu] = useState(false);
@@ -198,66 +208,6 @@ const EditPhotoScreen = () => {
         }
       ]
     );
-  };
-
-  // Save PDF functionality: after saving, go to HomeScreen, no Toast
-  const handleSavePDF = async () => {
-    if (!editState.currentImageUri) {
-      Toast.show({
-        type: "error",
-        text1: "No image to save as PDF",
-      });
-      return;
-    }
-    setEditState((prev) => ({ ...prev, isProcessing: true }));
-    try {
-      // Convert image to base64
-      const fileUri = editState.currentImageUri;
-      const base64 = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.Base64 });
-      // Create HTML with inlined image
-      const html = `
-        <html>
-          <body style='margin:0;padding:0;'>
-            <img src='data:image/jpeg;base64,${base64}' style='width:100vw;max-width:100%;height:auto;'/>
-          </body>
-        </html>
-      `;
-      // Generate PDF
-      const { uri: pdfUri } = await Print.printToFileAsync({ html });
-      // Move PDF to a permanent location
-      // Always prefix with the default file prefix
-      let prefix = await getDefaultFilePrefix();
-      if (!prefix) prefix = "Scan";
-      let pdfName = "";
-      // Clean user-specified name: remove extension, special chars, trim
-      let userName = editableName ? editableName.replace(/\.[^/.]+$/, "") : "";
-      userName = userName.replace(/[^a-zA-Z0-9_-]/g, "_").trim();
-      if (userName) {
-        pdfName = `${prefix}_${userName}.pdf`;
-      } else {
-        pdfName = `${prefix}_${Date.now()}.pdf`;
-      }
-      const destPath = `${FileSystem.documentDirectory}${pdfName}`;
-      await FileSystem.moveAsync({ from: pdfUri, to: destPath });
-      // Store PDF path in AsyncStorage
-      let savedPdfs = [];
-      const existing = await AsyncStorage.getItem("SAVED_PDFS");
-      if (existing) {
-        savedPdfs = JSON.parse(existing);
-      }
-      savedPdfs.push({ name: pdfName, path: destPath, date: new Date().toISOString() });
-      await AsyncStorage.setItem("SAVED_PDFS", JSON.stringify(savedPdfs));
-      // No success Toast, just navigate
-      router.back();
-    } catch (error) {
-      console.error("PDF save error:", error);
-      Toast.show({
-        type: "error",
-        text1: "Failed to save PDF",
-      });
-    } finally {
-      setEditState((prev) => ({ ...prev, isProcessing: false }));
-    }
   };
 
   // Improved PanResponders with proper gesture handling
@@ -374,6 +324,70 @@ const EditPhotoScreen = () => {
     }
   };
 
+  const handleSave = async () => {
+    if (!editState.currentImageUri) {
+      Toast.show({
+        type: "error",
+        text1: "No image to save",
+      });
+      return;
+    }
+    setEditState((prev) => ({ ...prev, isProcessing: true }));
+    try {
+      // Get current prefix and generate file name
+      let currentPrefix = await getDefaultFilePrefix();
+      const uniqueNumber = Date.now();
+      
+      let baseName = "";
+      if (currentPrefix && currentPrefix.trim() !== "") {
+        baseName = `${currentPrefix.trim()}_${uniqueNumber}`;
+      } else {
+        baseName = `${uniqueNumber}`;
+      }
+      
+      const imageName = `${baseName}.jpg`;
+      const imageDestPath = `${FileSystem.documentDirectory}${imageName}`;
+      await FileSystem.copyAsync({ from: editState.currentImageUri, to: imageDestPath });
+
+      // Convert image to base64 for PDF
+      const base64 = await FileSystem.readAsStringAsync(imageDestPath, { encoding: FileSystem.EncodingType.Base64 });
+      const html = `
+        <html>
+          <body style='margin:0;padding:0;'>
+            <img src='data:image/jpeg;base64,${base64}' style='width:100vw;max-width:100%;height:auto;'/>
+          </body>
+        </html>
+      `;
+      const { uri: pdfUri } = await Print.printToFileAsync({ html });
+      const pdfName = `${baseName}.pdf`;
+      const pdfDestPath = `${FileSystem.documentDirectory}${pdfName}`;
+      await FileSystem.moveAsync({ from: pdfUri, to: pdfDestPath });
+
+      // Store both image and PDF paths in AsyncStorage
+      let savedDocs = [];
+      const existing = await AsyncStorage.getItem("SAVED_PDFS");
+      if (existing) {
+        savedDocs = JSON.parse(existing);
+      }
+      savedDocs.push({ 
+        name: baseName, 
+        imagePath: imageDestPath, 
+        pdfPath: pdfDestPath, 
+        date: new Date().toISOString() 
+      });
+      await AsyncStorage.setItem("SAVED_PDFS", JSON.stringify(savedDocs));
+      router.back();
+    } catch (error) {
+      console.error("Save error:", error);
+      Toast.show({
+        type: "error",
+        text1: "Failed to save document",
+      });
+    } finally {
+      setEditState((prev) => ({ ...prev, isProcessing: false }));
+    }
+  };
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.container}>
@@ -405,7 +419,7 @@ const EditPhotoScreen = () => {
               />
             ) : (
               <Text style={styles.filename} numberOfLines={1}>
-                {editableName.replace(/%20/g, " ")}
+                {displayFileName}
               </Text>
             )}
             <TouchableOpacity onPress={() => setIsEditingName(true)}>
@@ -461,8 +475,8 @@ const EditPhotoScreen = () => {
         <View style={{ width: '100%', position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'column-reverse', zIndex: 50 }}>
           {/* Save PDF button at the top of the stack */}
           <View style={styles.bottomButtons}>
-            <TouchableOpacity style={styles.savePdfButton} onPress={handleSavePDF}>
-              <Text style={styles.savePdfText}>Save PDF</Text>
+            <TouchableOpacity style={styles.savePdfButton} onPress={handleSave}>
+              <Text style={styles.savePdfText}>Save</Text>
             </TouchableOpacity>
           </View>
           {/* Toolbar below Save PDF */}
@@ -559,6 +573,7 @@ const EditPhotoScreen = () => {
     </GestureHandlerRootView>
   );
 };
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,

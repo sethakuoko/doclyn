@@ -5,6 +5,7 @@ import * as Print from "expo-print";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import React, { useEffect, useState } from "react";
+import Constants from "expo-constants";
 import {
   Alert,
   Dimensions,
@@ -17,10 +18,9 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Image,
 } from "react-native";
-import Pdf from "react-native-pdf";
 import { WebView } from "react-native-webview";
-import { getDefaultFilePrefix } from "../utils/storage";
 import { COLORS } from "./types";
 
 import { ToastMessage } from "../components/Toast";
@@ -31,9 +31,10 @@ function isPdf(path: string) {
   return path && path.toLowerCase().endsWith(".pdf");
 }
 
-interface SavedPDF {
+interface SavedDocument {
   name: string;
-  path: string;
+  imagePath: string;
+  pdfPath: string;
   date: string;
   ocrText?: string;
 }
@@ -43,53 +44,85 @@ const DocumentDetailsScreen = () => {
   let { imagePath, pdfPath } = useLocalSearchParams();
 
   // Handle both imagePath and pdfPath parameters
-  let filePath = pdfPath || imagePath;
-  if (Array.isArray(filePath)) {
-    filePath = filePath[0];
-  }
+  let imgPath = imagePath;
+  let pdfP = pdfPath;
+  if (Array.isArray(imgPath)) imgPath = imgPath[0];
+  if (Array.isArray(pdfP)) pdfP = pdfP[0];
+
+  // Fallback: if only pdfPath is provided, try to infer imagePath from storage
+  const [imageUri, setImageUri] = useState<string | null>(imgPath || null);
+  const [pdfUri, setPdfUri] = useState<string | null>(pdfP || null);
+
+  useEffect(() => {
+    // If imagePath is missing but pdfPath is present, try to find the imagePath from storage
+    if (!imgPath && pdfP) {
+      (async () => {
+        const saved = await AsyncStorage.getItem("SAVED_PDFS");
+        if (saved) {
+          const docs = JSON.parse(saved);
+          const found = docs.find((doc: any) => doc.pdfPath === pdfP);
+          if (found && found.imagePath) setImageUri(found.imagePath);
+        }
+      })();
+    }
+    if (!pdfP && imgPath) {
+      (async () => {
+        const saved = await AsyncStorage.getItem("SAVED_PDFS");
+        if (saved) {
+          const docs = JSON.parse(saved);
+          const found = docs.find((doc: any) => doc.imagePath === imgPath);
+          if (found && found.pdfPath) setPdfUri(found.pdfPath);
+        }
+      })();
+    }
+  }, [imgPath, pdfP]);
 
   const [pdfHtml, setPdfHtml] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [defaultPrefix, setDefaultPrefix] = useState("");
   const [moreOptionsVisible, setMoreOptionsVisible] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [webViewError, setWebViewError] = useState(false);
+  const isExpoGo = Constants.appOwnership === "expo";
 
-  // Extract filename from path for display
+  // Get the actual document name from storage
+  const [documentName, setDocumentName] = useState<string>("Document");
+
   useEffect(() => {
-    const fetchPrefix = async () => {
-      const prefix = await getDefaultFilePrefix();
-      setDefaultPrefix(prefix || "");
-    };
-    fetchPrefix();
-  }, []);
-
-  const getFileName = (path: string) => {
-    if (!path) return "Document";
-    const parts = path.split("/");
-    let name = parts[parts.length - 1];
-    // If user has set a prefix, strip any IMG prefix from the name
-    if (defaultPrefix && name) {
-      name = name.replace(/^IMG[_-]?/i, "");
-      if (!name.startsWith(defaultPrefix)) {
-        name = `${defaultPrefix}${name}`;
+    const getDocumentName = async () => {
+      try {
+        const saved = await AsyncStorage.getItem("SAVED_PDFS");
+        if (saved) {
+          const docs = JSON.parse(saved);
+          const found = docs.find((doc: any) => 
+            doc.pdfPath === pdfUri || doc.imagePath === imageUri
+          );
+          if (found && found.name) {
+            // Use the stored name as-is (don't modify it)
+            setDocumentName(found.name);
+          }
+        }
+      } catch (error) {
+        console.error("Error getting document name:", error);
       }
+    };
+    
+    if (pdfUri || imageUri) {
+      getDocumentName();
     }
-    // If no user prefix and name does not start with IMG, fallback to Scan
-    if (!defaultPrefix && name && !/^IMG[_-]?/i.test(name)) {
-      name = `Scan${name}`;
-    }
-    return name;
-  };
+  }, [pdfUri, imageUri]);
 
   useEffect(() => {
-    if (isPdf(filePath)) {
+    if (isPdf(pdfUri || "")) {
       setLoading(true);
+      setWebViewError(false);
       const loadPdf = async () => {
         try {
-          const base64 = await FileSystem.readAsStringAsync(filePath, {
+          const base64 = await FileSystem.readAsStringAsync(pdfUri || "", {
             encoding: FileSystem.EncodingType.Base64,
           });
+
+          // For both platforms, try the embed approach first
           setPdfHtml(`
             <html>
               <head>
@@ -107,7 +140,54 @@ const DocumentDetailsScreen = () => {
                     height:100%; 
                     object-fit:contain;
                   }
+                  .android-fallback {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    height: 100vh;
+                    color: white;
+                    font-family: Arial, sans-serif;
+                    text-align: center;
+                    padding: 20px;
+                  }
+                  .open-button {
+                    background: #007AFF;
+                    color: white;
+                    border: none;
+                    padding: 15px 30px;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    margin-top: 20px;
+                    cursor: pointer;
+                  }
                 </style>
+                <script>
+                  // Check if PDF loaded successfully on Android
+                  window.addEventListener('load', function() {
+                    ${
+                      Platform.OS === "android"
+                        ? `
+                      setTimeout(function() {
+                        // If we're on Android and the embed didn't work, show fallback
+                        var embed = document.querySelector('embed');
+                        if (!embed || embed.offsetHeight === 0) {
+                          document.body.innerHTML = \`
+                            <div class="android-fallback">
+                              <h3>PDF Ready to View</h3>
+                              <p>This PDF will open in your device's PDF viewer for the best experience.</p>
+                              <button class="open-button" onclick="window.ReactNativeWebView.postMessage('OPEN_EXTERNAL')">
+                                Open PDF
+                              </button>
+                            </div>
+                          \`;
+                        }
+                      }, 2000);
+                    `
+                        : ""
+                    }
+                  });
+                </script>
               </head>
               <body>
                 <embed src="data:application/pdf;base64,${base64}" type="application/pdf" />
@@ -122,7 +202,7 @@ const DocumentDetailsScreen = () => {
       };
       loadPdf();
     }
-  }, [filePath]);
+  }, [pdfUri]);
 
   const handleBack = () => {
     router.back();
@@ -130,7 +210,9 @@ const DocumentDetailsScreen = () => {
 
   const handleShare = async () => {
     try {
-      await Sharing.shareAsync(filePath);
+      if (pdfUri) {
+        await Sharing.shareAsync(pdfUri);
+      }
     } catch (err) {
       Alert.alert("Share Failed", "Unable to share this PDF.");
     }
@@ -138,7 +220,9 @@ const DocumentDetailsScreen = () => {
 
   const handlePrint = async () => {
     try {
-      await Print.printAsync({ uri: filePath });
+      if (pdfUri) {
+        await Print.printAsync({ uri: pdfUri });
+      }
     } catch (err) {
       Alert.alert("Print Failed", "Unable to print this PDF.");
     }
@@ -154,14 +238,15 @@ const DocumentDetailsScreen = () => {
           try {
             // Remove from AsyncStorage
             let saved = await AsyncStorage.getItem("SAVED_PDFS");
-            let pdfs = saved ? JSON.parse(saved) : [];
-            pdfs = pdfs.filter((pdf: any) => pdf.path !== filePath);
-            await AsyncStorage.setItem("SAVED_PDFS", JSON.stringify(pdfs));
-            // Remove file from file system
-            await FileSystem.deleteAsync(filePath, { idempotent: true });
+            let docs = saved ? JSON.parse(saved) : [];
+            docs = docs.filter((doc: any) => doc.pdfPath !== pdfUri);
+            await AsyncStorage.setItem("SAVED_PDFS", JSON.stringify(docs));
+            // Remove files from file system
+            if (pdfUri) await FileSystem.deleteAsync(pdfUri, { idempotent: true });
+            if (imageUri) await FileSystem.deleteAsync(imageUri, { idempotent: true });
             router.replace("/HomeScreen");
           } catch (err) {
-            Alert.alert("Delete Failed", "Unable to delete this PDF.");
+            Alert.alert("Delete Failed", "Unable to delete this document.");
           }
         },
       },
@@ -170,7 +255,9 @@ const DocumentDetailsScreen = () => {
 
   const handleViewInApp = async () => {
     try {
-      await Linking.openURL(filePath);
+      if (pdfUri) {
+        await Linking.openURL(pdfUri);
+      }
     } catch (err) {
       Alert.alert(
         "No PDF Viewer",
@@ -183,7 +270,7 @@ const DocumentDetailsScreen = () => {
   const handleZoomIn = () => setZoom((z) => Math.min(z + 0.2, 3));
   const handleZoomOut = () => setZoom((z) => Math.max(z - 0.2, 0.5));
 
-  console.log("filePath", filePath);
+  console.log("filePath", pdfUri);
 
   return (
     <View style={styles.container}>
@@ -210,9 +297,9 @@ const DocumentDetailsScreen = () => {
         </View>
       </View>
 
-      {/* PDF Title */}
+      {/* PDF Title - Use stored document name without extension */}
       <View style={styles.titleContainer}>
-        <Text style={styles.titleText}>{getFileName(filePath)} PDF</Text>
+        <Text style={styles.titleText}>{documentName}</Text>
       </View>
       <View style={styles.pdfContainer}>
         <TouchableOpacity
@@ -229,41 +316,18 @@ const DocumentDetailsScreen = () => {
             minimumZoomScale={0.5}
             scrollEnabled
           >
-            {isPdf(filePath) &&
-              !loading &&
-              !error &&
-              (Platform.OS === "android" ? (
-                <Pdf
-                  source={{ uri: filePath }}
-                  style={{ flex: 1, width: "100%", height: "100%" }}
-                  onError={() => setError("Unable to display PDF.")}
-                  onLoadComplete={() => setLoading(false)}
-                  onPageChanged={() => {}}
-                  onPressLink={(uri) => Linking.openURL(uri)}
-                />
-              ) : (
-                <WebView
-                  originWhitelist={["*"]}
-                  source={{ html: pdfHtml }}
-                  style={{ flex: 1, width: "100%", height: "100%" }}
-                  scalesPageToFit={true}
-                  bounces={false}
-                  javaScriptEnabled={true}
-                  domStorageEnabled={true}
-                  startInLoadingState={true}
-                  renderError={() => (
-                    <Text
-                      style={{
-                        color: "white",
-                        textAlign: "center",
-                        marginTop: 20,
-                      }}
-                    >
-                      Unable to display PDF.
-                    </Text>
-                  )}
-                />
-              ))}
+            {imageUri ? (
+              <Image
+                source={{ uri: imageUri }}
+                style={{ flex: 1, width: "100%", height: "100%", resizeMode: "contain" }}
+              />
+            ) : (
+              <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#000" }}>
+                <Text style={{ color: "white", textAlign: "center", marginBottom: 20, fontSize: 16 }}>
+                  Unable to display image.
+                </Text>
+              </View>
+            )}
           </ScrollView>
         </TouchableOpacity>
       </View>
@@ -446,7 +510,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
-    paddingBottom: 30, // Add some padding at the bottom for the close button
+    paddingBottom: 30,
   },
   optionsItem: {
     flexDirection: "row",

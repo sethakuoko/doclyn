@@ -16,21 +16,13 @@ import * as Print from "expo-print";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useState } from "react";
 import { COLORS } from "../app/types";
-
-interface Document {
-  id: number;
-  title: string;
-  date: string;
-  thumbnail: string;
-  isLarge?: boolean;
-  path: string;
-}
+import type { SavedDocument } from "../app/types";
 
 interface DocumentOptionsModalProps {
   visible: boolean;
   onClose: () => void;
-  document: Document | null;
-  onDocumentChange?: (updated: Document | null, deleted?: boolean) => void;
+  document: SavedDocument | null;
+  onDocumentChange?: (updated: SavedDocument | null, deleted?: boolean) => void;
 }
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
@@ -45,28 +37,22 @@ const DocumentOptionsModal: React.FC<DocumentOptionsModalProps> = ({
   const [renameValue, setRenameValue] = useState("");
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [fileSize, setFileSize] = useState<string | null>(null);
-  const [docState, setDocState] = useState<Document | null>(document);
+  const [docState, setDocState] = useState<SavedDocument | null>(document);
 
-  // Update rename input and docState when document changes
+  // Update rename input when document changes
   React.useEffect(() => {
     if (document) {
-      let name = document.title;
-      name = name.replace(/^IMG[_-]?/i, "");
-      AsyncStorage.getItem("DEFAULT_FILE_PREFIX").then(prefix => {
-        if (prefix && name.startsWith(prefix)) {
-          name = name.slice(prefix.length);
-        }
-        setRenameValue(name);
-      });
+      // For renaming, show the current name as-is (no prefix manipulation)
+      setRenameValue(document.name);
       setDocState(document);
     }
   }, [document]);
 
   // Get file size for details
   React.useEffect(() => {
-    if (docState?.path) {
+    if (docState?.pdfPath) {
       import("expo-file-system").then(FileSystem => {
-        FileSystem.getInfoAsync(docState.path).then(info => {
+        FileSystem.getInfoAsync(docState.pdfPath).then(info => {
           if (info.exists && info.size) {
             const kb = info.size / 1024;
             setFileSize(kb > 1024 ? `${(kb/1024).toFixed(2)} MB` : `${kb.toFixed(1)} KB`);
@@ -83,48 +69,45 @@ const DocumentOptionsModal: React.FC<DocumentOptionsModalProps> = ({
   // --- Feature Handlers ---
   const handleShare = async () => {
     try {
-      await Sharing.shareAsync(docState.path);
+      await Sharing.shareAsync(docState.pdfPath);
     } catch (err) {
       alert("Failed to share PDF");
     }
-    // Do not close modal
   };
 
   const handleRename = async () => {
     if (!renameValue.trim()) return;
     let saved = await AsyncStorage.getItem("SAVED_PDFS");
-    let pdfs = saved ? JSON.parse(saved) : [];
-    const idx = pdfs.findIndex((pdf: any) => pdf.path === docState.path);
+    let docs = saved ? JSON.parse(saved) : [];
+    const idx = docs.findIndex((doc: any) => doc.pdfPath === docState.pdfPath);
     if (idx !== -1) {
-      let prefix = await AsyncStorage.getItem("DEFAULT_FILE_PREFIX");
-      prefix = prefix || "IMG";
-      const newName = `${prefix}${renameValue.trim()}`;
-      pdfs[idx].name = newName;
-      await AsyncStorage.setItem("SAVED_PDFS", JSON.stringify(pdfs));
+      // Use exactly what the user entered as the new name (no prefix logic applied)
+      const newName = renameValue.trim();
+      docs[idx].name = newName;
+      await AsyncStorage.setItem("SAVED_PDFS", JSON.stringify(docs));
       // Update local state and notify parent
-      const updatedDoc = { ...docState, title: newName };
+      const updatedDoc = { ...docState, name: newName };
       setDocState(updatedDoc);
-      if (onDocumentChange) onDocumentChange(updatedDoc);
+      if (onDocumentChange) onDocumentChange(updatedDoc, false);
     }
     setIsRenaming(false);
-    // Do not close modal
   };
 
   const handlePrint = async () => {
     try {
-      await Print.printAsync({ uri: docState.path });
+      await Print.printAsync({ uri: docState.pdfPath });
     } catch (err) {
       alert("Failed to print PDF");
     }
-    // Do not close modal
   };
 
   const handleDelete = async () => {
     let saved = await AsyncStorage.getItem("SAVED_PDFS");
-    let pdfs = saved ? JSON.parse(saved) : [];
-    pdfs = pdfs.filter((pdf: any) => pdf.path !== docState.path);
-    await AsyncStorage.setItem("SAVED_PDFS", JSON.stringify(pdfs));
+    let docs = saved ? JSON.parse(saved) : [];
+    docs = docs.filter((doc: any) => doc.pdfPath !== docState.pdfPath);
+    await AsyncStorage.setItem("SAVED_PDFS", JSON.stringify(docs));
     if (onDocumentChange) onDocumentChange(null, true);
+    setDocState(null);
     onClose();
   };
 
@@ -173,11 +156,11 @@ const DocumentOptionsModal: React.FC<DocumentOptionsModalProps> = ({
           {/* Top: Actual image and file name */}
           <View style={styles.fileInfo}>
             <Image
-              source={{ uri: docState.thumbnail }}
+              source={{ uri: docState.imagePath }}
               style={styles.smallThumbnail}
             />
             <View style={styles.fileDetails}>
-              <Text style={styles.fileName}>{docState.title}</Text>
+              <Text style={styles.fileName}>{docState.name}</Text>
             </View>
           </View>
 
@@ -221,25 +204,26 @@ const DocumentOptionsModal: React.FC<DocumentOptionsModalProps> = ({
           {detailsExpanded && (
             <View style={styles.detailsSection}>
               <Text style={styles.detailsItem}><Text style={styles.detailsLabel}>File type:</Text> PDF</Text>
-              <Text style={styles.detailsItem}><Text style={styles.detailsLabel}>File name:</Text> {docState.title}</Text>
+              <Text style={styles.detailsItem}><Text style={styles.detailsLabel}>File name:</Text> {docState.name}</Text>
               <Text style={styles.detailsItem}><Text style={styles.detailsLabel}>File size:</Text> {fileSize || "-"}</Text>
-              <Text style={styles.detailsItem}><Text style={styles.detailsLabel}>File location:</Text> {docState.path || "-"}</Text>
+              <Text style={styles.detailsItem}><Text style={styles.detailsLabel}>File location:</Text> {docState.pdfPath || "-"}</Text>
               <Text style={styles.detailsItem}><Text style={styles.detailsLabel}>Date of capture:</Text> {docState.date || "-"}</Text>
             </View>
           )}
 
-          {/* Rename UI */}
+          {/* Rename UI - Removed IMG prefix, just show input field */}
           {isRenaming && (
             <View style={styles.renameSection}>
               <Text style={styles.renameLabel}>Rename file</Text>
               <View style={styles.renameInputRow}>
-                <Text style={styles.renamePrefix}>IMG</Text>
                 <TextInput
                   value={renameValue}
                   onChangeText={setRenameValue}
                   style={styles.renameInput}
                   autoFocus
                   selectTextOnFocus
+                  placeholder="Enter file name"
+                  placeholderTextColor="#666"
                 />
               </View>
               <View style={styles.renameActions}>
@@ -271,8 +255,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#1a1a1a",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    height: screenHeight * (2 / 3), // 2/3 of screen height
-    paddingBottom: 34, // Safe area padding for bottom
+    height: screenHeight * (2 / 3),
+    paddingBottom: 34,
   },
   topBar: {
     height: 5,
@@ -372,20 +356,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   renameInputRow: {
-    flexDirection: "row",
-    alignItems: "center",
     backgroundColor: "#2a2a2a",
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  renamePrefix: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginRight: 8,
-  },
   renameInput: {
-    flex: 1,
     fontSize: 16,
     color: "#fff",
     paddingVertical: 0,

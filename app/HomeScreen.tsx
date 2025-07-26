@@ -16,33 +16,26 @@ import {
   Linking,
   Alert,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context"; // RECOMMENDED package
+import { SafeAreaView } from "react-native-safe-area-context";
 import * as FileSystem from "expo-file-system";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { WebView } from "react-native-webview";
 import { COLORS } from "./types";
 import { getDefaultFilePrefix } from "../utils/storage";
-// @ts-ignore
 import * as Sharing from "expo-sharing";
 import * as MediaLibrary from "expo-media-library";
 import * as Print from "expo-print";
 import { Platform } from "react-native";
 import ViewShot from "react-native-view-shot";
 import { useRef } from "react";
+import type { SavedDocument } from "./types";
 
-interface Document {
-  id: number;
-  title: string;
-  date: string;
-  thumbnail: string;
-  isLarge?: boolean;
-  path: string; // Added path for navigation
-}
-
-/*
-
-*/
+// Utility to get display name based on current prefix rules
+const getDisplayName = (originalName: string, currentPrefix: string) => {
+  // Return the original name as-is (don't modify existing saved names)
+  return originalName;
+};
 
 // Utility to generate HTML for PDF preview (responsive to container)
 const getPdfHtml = (base64: string) => `
@@ -74,23 +67,22 @@ const getPdfHtml = (base64: string) => `
 const DoclynHomeScreen: React.FC = () => {
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [pdfPreviews, setPdfPreviews] = useState<{ [id: number]: string }>({});
+  const [documents, setDocuments] = useState<SavedDocument[]>([]);
+  const [pdfPreviews, setPdfPreviews] = useState<{ [pdfPath: string]: string }>({});
   const [itemModalVisible, setItemModalVisible] = useState(false);
-  const [selectedDocument, setSelectedDocument] = useState<Document | null>(
-    null
-  );
+  const [selectedDocument, setSelectedDocument] = useState<SavedDocument | null>(null);
   const [defaultPrefix, setDefaultPrefix] = useState("");
   const [webViewHeight, setWebViewHeight] = useState(0);
+  
   // Search state
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Document[]>([]);
+  const [searchResults, setSearchResults] = useState<SavedDocument[]>([]);
   const [searchSubmitted, setSearchSubmitted] = useState(false);
 
   // Multi-select state
-  const [selectedOption, setSelectedOption] = useState<string>("viewAll"); // 'viewAll' by default
-  const [selectedDocs, setSelectedDocs] = useState<Set<number>>(new Set());
+  const [selectedOption, setSelectedOption] = useState<string>("viewAll");
+  const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
 
   // Reset selection when switching back to viewAll
   useEffect(() => {
@@ -103,11 +95,11 @@ const DoclynHomeScreen: React.FC = () => {
     setSelectedOption(optionId);
   };
 
-  const toggleDocSelection = (docId: number) => {
+  const toggleDocSelection = (pdfPath: string) => {
     setSelectedDocs((prev) => {
       const next = new Set(prev);
-      if (next.has(docId)) next.delete(docId);
-      else next.add(docId);
+      if (next.has(pdfPath)) next.delete(pdfPath);
+      else next.add(pdfPath);
       return next;
     });
   };
@@ -118,42 +110,32 @@ const DoclynHomeScreen: React.FC = () => {
   };
 
   const handleDeleteSelected = async () => {
-    // Remove selected docs from AsyncStorage and state
-    const idsToDelete = Array.from(selectedDocs);
+    const pdfPathsToDelete = Array.from(selectedDocs);
     let saved = await AsyncStorage.getItem("SAVED_PDFS");
-    let pdfs = saved ? JSON.parse(saved) : [];
-    pdfs = pdfs.filter(
-      (pdf: any, idx: number) => !idsToDelete.includes(idx + 1)
-    );
-    await AsyncStorage.setItem("SAVED_PDFS", JSON.stringify(pdfs));
-    setDocuments((docs) => docs.filter((doc) => !selectedDocs.has(doc.id)));
+    let docs = saved ? JSON.parse(saved) : [];
+    docs = docs.filter((doc: any) => !pdfPathsToDelete.includes(doc.pdfPath));
+    await AsyncStorage.setItem("SAVED_PDFS", JSON.stringify(docs));
+    setDocuments((docs) => docs.filter((doc) => !selectedDocs.has(doc.pdfPath)));
     handleCancelMultiSelect();
   };
 
   const handleShareSelected = async () => {
-    const docsToShare = documents.filter((doc) => selectedDocs.has(doc.id));
+    const docsToShare = documents.filter((doc) => selectedDocs.has(doc.pdfPath));
     if (docsToShare.length === 0) {
       handleCancelMultiSelect();
       return;
     }
     try {
-      // If only one file, share directly
       if (docsToShare.length === 1) {
-        await Sharing.shareAsync(docsToShare[0].path);
+        await Sharing.shareAsync(docsToShare[0].pdfPath);
       } else {
-        // For multiple files, share as an array (if supported)
-        // Expo Sharing API does not support multiple files at once on all platforms
-        // So share the first file and alert the user
-        await Sharing.shareAsync(docsToShare[0].path);
-        // Optionally, show a message to the user
+        await Sharing.shareAsync(docsToShare[0].pdfPath);
         if (docsToShare.length > 1) {
-          alert(
-            "Sharing multiple files is not supported on all platforms. Only the first file was shared."
-          );
+          Alert.alert("Multiple file sharing is not supported on all platforms.");
         }
       }
     } catch (err) {
-      console.error("Error sharing files:", err);
+      console.error("Error sharing file:", err);
     }
     handleCancelMultiSelect();
   };
@@ -164,13 +146,14 @@ const DoclynHomeScreen: React.FC = () => {
       const loadSavedPdfs = async () => {
         const saved = await AsyncStorage.getItem("SAVED_PDFS");
         if (saved) {
-          const pdfs = JSON.parse(saved);
+          const docs = JSON.parse(saved);
           setDocuments(
-            pdfs.map((pdf: any, idx: number) => ({
-              id: idx + 1,
-              title: pdf.name,
-              date: pdf.date ? new Date(pdf.date).toLocaleDateString() : "",
-              path: pdf.path,
+            docs.map((doc: any) => ({
+              name: doc.name,
+              imagePath: doc.imagePath,
+              pdfPath: doc.pdfPath,
+              date: doc.date ? new Date(doc.date).toLocaleDateString() : "",
+              ocrText: doc.ocrText,
             }))
           );
         } else {
@@ -185,15 +168,15 @@ const DoclynHomeScreen: React.FC = () => {
   useFocusEffect(
     useCallback(() => {
       const loadPreviews = async () => {
-        const previews: { [id: number]: string } = {};
+        const previews: { [pdfPath: string]: string } = {};
         for (const doc of documents) {
           try {
-            const base64 = await FileSystem.readAsStringAsync(doc.path, {
+            const base64 = await FileSystem.readAsStringAsync(doc.pdfPath, {
               encoding: FileSystem.EncodingType.Base64,
             });
-            previews[doc.id] = getPdfHtml(base64);
+            previews[doc.pdfPath] = getPdfHtml(base64);
           } catch (e) {
-            previews[doc.id] = ""; // Use empty string on error
+            previews[doc.pdfPath] = "";
           }
         }
         setPdfPreviews(previews);
@@ -222,9 +205,8 @@ const DoclynHomeScreen: React.FC = () => {
         setSearchSubmitted(false);
         return;
       }
-      // Rank by best match (simple: includes, then startsWith, then exact)
       const filtered = documents.filter((doc) =>
-        doc.title.toLowerCase().includes(q)
+        doc.name.toLowerCase().includes(q)
       );
       setSearchResults(filtered);
     }
@@ -243,44 +225,38 @@ const DoclynHomeScreen: React.FC = () => {
     console.log("Free trial button clicked");
   };
 
-  const handleShareClick = async (docId: number) => {
-    const doc = documents.find((d) => d.id === docId);
+  const handleShareClick = async (pdfPath: string) => {
+    const doc = documents.find((d) => d.pdfPath === pdfPath);
     if (!doc) return;
     try {
-      await Sharing.shareAsync(doc.path);
+      await Sharing.shareAsync(doc.pdfPath);
     } catch (err) {
       console.error("Error sharing file:", err);
     }
   };
 
-  const handleViewClick = async (docId: number) => {
-    const doc = documents.find((d) => d.id === docId);
+  const handleViewClick = async (pdfPath: string) => {
+    const doc = documents.find((d) => d.pdfPath === pdfPath);
     if (!doc) return;
-    // Only allow for PDFs
-    if (!doc.path.toLowerCase().endsWith(".pdf")) return;
     try {
-      // Try to open with the default app
-      await Linking.openURL(doc.path);
+      await Linking.openURL(doc.pdfPath);
     } catch (err) {
-      Alert.alert(
-        "No PDF Viewer",
-        "No app found to view PDF files on this device."
-      );
+      Alert.alert("No PDF Viewer", "No app found to view PDF files on this device.");
     }
   };
 
-  const handleEditClick = (docId: number): void => {
-    console.log(`Edit text button clicked for document ${docId}`);
+  const handleEditClick = (pdfPath: string): void => {
+    console.log(`Edit text button clicked for document ${pdfPath}`);
   };
 
   // Ref for capturing the WebView as an image
   const viewShotRef = useRef<any>(null);
-  const [captureDocId, setCaptureDocId] = useState<number | null>(null);
+  const [captureDocId, setCaptureDocId] = useState<string | null>(null);
   const [readyToCapture, setReadyToCapture] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
 
-  const handleSaveAsJPEGClick = async (docId: number) => {
-    setCaptureDocId(docId);
+  const handleSaveAsJPEGClick = async (pdfPath: string) => {
+    setCaptureDocId(pdfPath);
     setReadyToCapture(false);
     setIsCapturing(true);
     setWebViewHeight(0);
@@ -293,18 +269,17 @@ const DoclynHomeScreen: React.FC = () => {
         return;
 
       try {
-        // Wait for WebView to be fully rendered with proper height
         await new Promise((res) => setTimeout(res, 1500));
 
         if (viewShotRef.current) {
           const uri = await viewShotRef.current.capture();
           const asset = await MediaLibrary.createAssetAsync(uri);
           await MediaLibrary.createAlbumAsync("Doclyn", asset, false);
-          alert("Saved to gallery as image!");
+          Alert.alert("Saved to gallery as image!");
         }
       } catch (err) {
         console.error("Error capturing and saving as image:", err);
-        alert("Failed to save as image.");
+        Alert.alert("Failed to save as image.");
       } finally {
         setCaptureDocId(null);
         setReadyToCapture(false);
@@ -316,12 +291,12 @@ const DoclynHomeScreen: React.FC = () => {
       doCapture();
   }, [captureDocId, readyToCapture, webViewHeight]);
 
-  const handleDocumentClick = (docId: number): void => {
-    const doc = documents.find((d) => d.id === docId);
+  const handleDocumentClick = (pdfPath: string): void => {
+    const doc = documents.find((d) => d.pdfPath === pdfPath);
     if (doc) {
       router.push({
         pathname: "/DocumentDetailsScreen",
-        params: { imagePath: doc.path },
+        params: { imagePath: doc.imagePath },
       });
     }
   };
@@ -336,29 +311,20 @@ const DoclynHomeScreen: React.FC = () => {
     router.push("/GalleryScreen");
   };
 
-  const renderDocumentItem = (doc: Document) => {
+  const renderDocumentItem = (doc: SavedDocument, idx: number) => {
     const isMultiSelect = selectedOption === "selectMultiple";
-    const isSelected = selectedDocs.has(doc.id);
-    // Ensure the prefix is present in the displayed name
-    let displayName = doc.title;
-    // If user has set a prefix, strip any IMG prefix from the name
-    if (defaultPrefix && displayName) {
-      displayName = displayName.replace(/^IMG[_-]?/i, "");
-      if (!displayName.startsWith(defaultPrefix)) {
-        displayName = `${defaultPrefix}${displayName}`;
-      }
-    }
-    // If no user prefix and name does not start with IMG, fallback to Scan
-    if (!defaultPrefix && displayName && !/^IMG[_-]?/i.test(displayName)) {
-      displayName = `Scan${displayName}`;
-    }
+    const isSelected = selectedDocs.has(doc.pdfPath);
+    
+    // Use the stored name as-is (don't modify existing names)
+    const displayName = getDisplayName(doc.name, defaultPrefix);
+
     return (
-      <View key={doc.id} style={styles.documentContainer}>
+      <View key={doc.pdfPath || idx} style={styles.documentContainer}>
         <TouchableOpacity
           onPress={() =>
             isMultiSelect
-              ? toggleDocSelection(doc.id)
-              : handleDocumentClick(doc.id)
+              ? toggleDocSelection(doc.pdfPath)
+              : handleDocumentClick(doc.pdfPath)
           }
           style={[
             styles.documentImageContainer,
@@ -390,21 +356,11 @@ const DoclynHomeScreen: React.FC = () => {
               )}
             </View>
           )}
-          {/* PDF Preview using WebView with base64 HTML */}
-          {pdfPreviews[doc.id] ? (
-            <WebView
-              originWhitelist={["*"]}
-              source={{ html: pdfPreviews[doc.id] }}
+          {doc.imagePath ? (
+            <Image
+              source={{ uri: doc.imagePath }}
               style={styles.documentImage}
-              javaScriptEnabled
-              domStorageEnabled
-              startInLoadingState
-              renderError={() => (
-                <View style={styles.documentImage}>
-                  <Text>Preview unavailable</Text>
-                </View>
-              )}
-              scrollEnabled={false}
+              resizeMode="cover"
             />
           ) : (
             <View
@@ -421,29 +377,27 @@ const DoclynHomeScreen: React.FC = () => {
           <Text style={styles.documentTitle}>{displayName}</Text>
           <Text style={styles.documentDate}>{doc.date}</Text>
           <View style={styles.documentActions}>
-            <TouchableOpacity onPress={() => handleShareClick(doc.id)}>
+            <TouchableOpacity onPress={() => handleShareClick(doc.pdfPath)}>
               <Ionicons
                 name="share-outline"
                 size={20}
                 color={COLORS.textSecondary}
               />
             </TouchableOpacity>
-            {/* View option for opening with another app */}
-            <TouchableOpacity onPress={() => handleViewClick(doc.id)}>
+            <TouchableOpacity onPress={() => handleViewClick(doc.pdfPath)}>
               <Ionicons
                 name="eye-outline"
                 size={20}
                 color={COLORS.textSecondary}
               />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleSaveAsJPEGClick(doc.id)}>
+            <TouchableOpacity onPress={() => handleSaveAsJPEGClick(doc.pdfPath)}>
               <Ionicons
                 name="image-outline"
                 size={20}
                 color={COLORS.textSecondary}
               />
             </TouchableOpacity>
-            {/* More options button restored */}
             <TouchableOpacity
               onPress={() => {
                 setSelectedDocument(doc);
@@ -550,7 +504,6 @@ const DoclynHomeScreen: React.FC = () => {
           >
             <Ionicons name="search" size={24} color={COLORS.textSecondary} />
           </TouchableOpacity>
-          {/* More options button restored */}
           <TouchableOpacity
             onPress={() => setModalVisible(true)}
             style={styles.headerButton}
@@ -581,7 +534,6 @@ const DoclynHomeScreen: React.FC = () => {
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
 
       {renderAppBar()}
-      {/* HomeViewModal restored */}
       <HomeViewModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
@@ -602,7 +554,7 @@ const DoclynHomeScreen: React.FC = () => {
             </Text>
           </View>
         ) : (
-          docsToShow.map((doc) => renderDocumentItem(doc))
+          docsToShow.map((doc, idx) => renderDocumentItem(doc, idx))
         )}
       </ScrollView>
 
@@ -631,8 +583,8 @@ const DoclynHomeScreen: React.FC = () => {
       {/* Hidden ViewShot and WebView for PDF-to-image capture */}
       {captureDocId !== null &&
         (() => {
-          const doc = documents.find((d) => d.id === captureDocId);
-          if (!doc || !pdfPreviews[doc.id]) return null;
+          const doc = documents.find((d) => d.pdfPath === captureDocId);
+          if (!doc || !pdfPreviews[doc.pdfPath]) return null;
 
           return (
             <View
@@ -652,14 +604,13 @@ const DoclynHomeScreen: React.FC = () => {
                 >
                   <WebView
                     originWhitelist={["*"]}
-                    source={{ html: pdfPreviews[doc.id] }}
+                    source={{ html: pdfPreviews[doc.pdfPath] }}
                     style={{ width: 400, height: 600 }}
                     javaScriptEnabled
                     domStorageEnabled
                     startInLoadingState={false}
                     scrollEnabled={false}
                     onLoadEnd={() => {
-                      // Inject JavaScript to get actual content height
                       const script = `
                 (function() {
                   const height = Math.max(
@@ -674,8 +625,7 @@ const DoclynHomeScreen: React.FC = () => {
               `;
                       if (viewShotRef.current) {
                         setTimeout(() => {
-                          // Use injectedJavaScript or send message to check height
-                          setWebViewHeight(600); // Fallback to container height
+                          setWebViewHeight(600);
                           setTimeout(() => setReadyToCapture(true), 800);
                         }, 800);
                       }
@@ -709,17 +659,11 @@ const DoclynHomeScreen: React.FC = () => {
         document={selectedDocument}
         onDocumentChange={(updated, deleted) => {
           if (deleted) {
-            setDocuments((docs) =>
-              docs.filter((doc) => doc.id !== selectedDocument?.id)
-            );
-            setItemModalVisible(false);
+            setDocuments((docs) => docs.filter((doc) => doc.pdfPath !== (selectedDocument?.pdfPath || "")));
             setSelectedDocument(null);
+            setItemModalVisible(false);
           } else if (updated) {
-            setDocuments((docs) =>
-              docs.map((doc) =>
-                doc.id === updated.id ? { ...doc, title: updated.title } : doc
-              )
-            );
+            setDocuments((docs) => docs.map((doc) => doc.pdfPath === updated.pdfPath ? updated : doc));
             setSelectedDocument(updated);
           }
         }}

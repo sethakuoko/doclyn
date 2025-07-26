@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
+import type { SavedDocument } from '../app/types';
 
 // Storage keys
 const STORAGE_KEYS = {
@@ -69,6 +70,7 @@ export const checkLoginStatus = async (): Promise<boolean> => {
 // Set default file name prefix
 export const setDefaultFilePrefix = async (prefix: string) => {
   try {
+    // Store the prefix exactly as provided (case-sensitive, can be empty)
     await AsyncStorage.setItem(STORAGE_KEYS.DEFAULT_FILE_PREFIX, prefix);
   } catch (error) {
     console.error('Error saving default file prefix:', error);
@@ -80,6 +82,7 @@ export const setDefaultFilePrefix = async (prefix: string) => {
 export const getDefaultFilePrefix = async (): Promise<string> => {
   try {
     const prefix = await AsyncStorage.getItem(STORAGE_KEYS.DEFAULT_FILE_PREFIX);
+    // Return empty string if null/undefined, don't default to 'scan'
     return prefix || '';
   } catch (error) {
     console.error('Error getting default file prefix:', error);
@@ -105,5 +108,62 @@ export const getSaveOriginalsToPhotos = async (): Promise<boolean> => {
   } catch (error) {
     console.error('Error getting saveOriginalsToPhotos:', error);
     return false;
+  }
+};
+
+// SavedDocument helpers
+export const getSavedDocuments = async () => {
+  try {
+    const saved = await AsyncStorage.getItem('SAVED_PDFS');
+    return saved ? JSON.parse(saved) : [];
+  } catch (error) {
+    console.error('Error getting saved documents:', error);
+    return [];
+  }
+};
+
+export const saveDocument = async (doc: SavedDocument) => {
+  try {
+    const saved = await AsyncStorage.getItem('SAVED_PDFS');
+    let docs = saved ? JSON.parse(saved) : [];
+    docs.push(doc);
+    await AsyncStorage.setItem('SAVED_PDFS', JSON.stringify(docs));
+  } catch (error) {
+    console.error('Error saving document:', error);
+    throw error;
+  }
+};
+
+export const deleteDocument = async (pdfPath: string) => {
+  try {
+    const saved = await AsyncStorage.getItem('SAVED_PDFS');
+    let docs = saved ? JSON.parse(saved) : [];
+    docs = docs.filter((doc: SavedDocument) => doc.pdfPath !== pdfPath);
+    await AsyncStorage.setItem('SAVED_PDFS', JSON.stringify(docs));
+  } catch (error) {
+    console.error('Error deleting document:', error);
+    throw error;
+  }
+};
+
+// Update document name (for rename functionality)
+export const updateDocumentName = async (pdfPath: string, newName: string) => {
+  try {
+    const saved = await AsyncStorage.getItem('SAVED_PDFS');
+    let docs = saved ? JSON.parse(saved) : [];
+    
+    // Find and update the document
+    docs = docs.map((doc: SavedDocument) => {
+      if (doc.pdfPath === pdfPath) {
+        return { ...doc, name: newName };
+      }
+      return doc;
+    });
+    
+    await AsyncStorage.setItem('SAVED_PDFS', JSON.stringify(docs));
+    return true;
+  } catch (error) {
+    console.error('Error updating document name:', error);
+    throw error;
   }
 };
