@@ -1,10 +1,9 @@
 import { useFileNameInput } from "@/components/FileNameInput";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   SafeAreaView,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Switch,
@@ -12,16 +11,27 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { clearUserSession, getUserSession, setDefaultFilePrefix, getDefaultFilePrefix, setSaveOriginalsToPhotos, getSaveOriginalsToPhotos } from "../utils/storage";
+import {
+  clearUserSession,
+  getDefaultFilePrefix,
+  getSaveOriginalsToPhotos,
+  getUserSession,
+  setDefaultFilePrefix,
+  setSaveOriginalsToPhotos,
+} from "../utils/storage";
 import { COLORS } from "./types";
 
 function SettingsScreen() {
   const router = useRouter();
 
   // State for toggle switches
-  const [saveOriginalsToPhotos, setSaveOriginalsToPhotosState] = useState(false);
+  const [saveOriginalsToPhotos, setSaveOriginalsToPhotosState] =
+    useState(false);
   const [defaultFileName, setDefaultFileName] = useState("Scan");
-  const [userData, setUserData] = useState({ username: "Loading...", email: "Loading..." });
+  const [userData, setUserData] = useState({
+    username: "Loading...",
+    email: "Loading...",
+  });
 
   // Load user data from AsyncStorage
   useEffect(() => {
@@ -29,14 +39,14 @@ function SettingsScreen() {
       try {
         const session = await getUserSession();
         if (session.email) {
-          const username = session.email.split('@')[0];
+          const username = session.email.split("@")[0];
           setUserData({
             username: username,
-            email: session.email
+            email: session.email,
           });
         }
       } catch (error) {
-        console.error('Error loading user data:', error);
+        console.error("Error loading user data:", error);
       }
     };
 
@@ -44,7 +54,7 @@ function SettingsScreen() {
   }, []);
 
   // File name input component
-  const { showFileNamePrompt } = useFileNameInput({
+  const { showFileNamePrompt, FileNameInputModal } = useFileNameInput({
     currentFileName: defaultFileName,
     onFileNameUpdate: async (fileName: string) => {
       setDefaultFileName(fileName);
@@ -86,10 +96,10 @@ function SettingsScreen() {
       await clearUserSession();
       router.replace("/");
     } catch (error) {
-      console.error('Error during sign out:', error);
+      console.error("Error during sign out:", error);
     }
   };
-  
+
   const handleDonePress = () => {
     router.back();
   };
@@ -117,7 +127,7 @@ function SettingsScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <View style={styles.content}>
         {/* Profile Section */}
         <TouchableOpacity
           style={styles.profileSection}
@@ -165,7 +175,11 @@ function SettingsScreen() {
             onPress={handleDefaultFileNamePress}
           >
             <Text style={styles.settingsItemText}>Default file name</Text>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={COLORS.textSecondary}
+            />
           </TouchableOpacity>
         </View>
 
@@ -178,7 +192,8 @@ function SettingsScreen() {
             <Text style={styles.settingsItemText}>Sign out</Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+      </View>
+      <FileNameInputModal />
     </SafeAreaView>
   );
 }
@@ -186,6 +201,7 @@ function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    paddingTop: StatusBar.currentHeight || 0,
     backgroundColor: COLORS.background,
   },
   header: {

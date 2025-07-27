@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import {
   CameraType,
   CameraView,
@@ -7,27 +8,25 @@ import {
 import * as MediaLibrary from "expo-media-library";
 import { useRouter } from "expo-router";
 import React, {
+  ForwardedRef,
   useEffect,
   useImperativeHandle,
   useRef,
   useState,
-  ForwardedRef,
 } from "react";
 import {
   Alert,
+  Dimensions,
+  LayoutChangeEvent,
   StyleSheet,
   Text,
   View,
-  LayoutChangeEvent,
-  Dimensions,
 } from "react-native";
-import { PhotoResult } from "../app/types";
 import { requestMediaLibraryPermissions } from "../utils/permissions";
 import {
   getDefaultFilePrefix,
   getSaveOriginalsToPhotos,
 } from "../utils/storage";
-import { Ionicons } from "@expo/vector-icons";
 
 interface CameraScreenProps {
   flashMode?: FlashMode;
@@ -179,10 +178,6 @@ const CameraScreen = (props: CameraScreenProps, ref: ForwardedRef<any>) => {
       </View>
 
       {/* Document Detection Indicator */}
-      <View style={styles.detectionIndicator}>
-        <View style={styles.detectionDot} />
-        <Text style={styles.detectionText}>Looking for document...</Text>
-      </View>
     </View>
   );
 };

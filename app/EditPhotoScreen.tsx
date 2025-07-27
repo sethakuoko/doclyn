@@ -23,7 +23,7 @@ import {
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
-import { OCRStatus, processOCRParallel } from "../utils/ocr";
+import { OCRStatus } from "../utils/ocr";
 import { getDefaultFilePrefix } from "../utils/storage";
 import Crop from "./editTools/Crop";
 import { handleDelete } from "./editTools/Delete";
@@ -191,50 +191,50 @@ const EditPhotoScreen = () => {
     }
   }, [imageUri]);
 
-  useEffect(() => {
-    if (imageUri) {
-      console.log("🔵 [1] Starting OCR process for image:", imageUri);
-      setEditState((prev) => ({
-        ...prev,
-        ocrStatus: { status: "processing" },
-      }));
+  // useEffect(() => {
+  //   if (imageUri) {
+  //     console.log("🔵 [1] Starting OCR process for image:", imageUri);
+  //     setEditState((prev) => ({
+  //       ...prev,
+  //       ocrStatus: { status: "processing" },
+  //     }));
 
-      const startTime = Date.now();
+  //     const startTime = Date.now();
 
-      processOCRParallel(imageUri)
-        .then((result) => {
-          console.log(`🟢 [2] OCR Success (${Date.now() - startTime}ms)`);
-          console.log(
-            "🟢 Extracted Text Preview:",
-            result.text.substring(0, 50) +
-              (result.text.length > 50 ? "..." : "")
-          );
-          console.log("🟢 Source:", result.source);
+  //     processOCRParallel(imageUri)
+  //       .then((result) => {
+  //         console.log(`🟢 [2] OCR Success (${Date.now() - startTime}ms)`);
+  //         console.log(
+  //           "🟢 Extracted Text Preview:",
+  //           result.text.substring(0, 50) +
+  //             (result.text.length > 50 ? "..." : "")
+  //         );
+  //         console.log("🟢 Source:", result.source);
 
-          setEditState((prev) => ({
-            ...prev,
-            ocrStatus: {
-              status: "success",
-              result,
-            },
-          }));
-        })
-        .catch((error) => {
-          console.log(`🔴 [3] OCR Failed (${Date.now() - startTime}ms)`);
-          console.error("🔴 Error Details:", error);
+  //         setEditState((prev) => ({
+  //           ...prev,
+  //           ocrStatus: {
+  //             status: "success",
+  //             result,
+  //           },
+  //         }));
+  //       })
+  //       .catch((error) => {
+  //         console.log(`🔴 [3] OCR Failed (${Date.now() - startTime}ms)`);
+  //         console.error("🔴 Error Details:", error);
 
-          setEditState((prev) => ({
-            ...prev,
-            ocrStatus: {
-              status: "failed",
-              error: error.message || "OCR processing failed",
-            },
-          }));
-        });
-    } else {
-      console.log("⚪️ [0] No imageUri available for OCR");
-    }
-  }, [imageUri]);
+  //         setEditState((prev) => ({
+  //           ...prev,
+  //           ocrStatus: {
+  //             status: "failed",
+  //             error: error.message || "OCR processing failed",
+  //           },
+  //         }));
+  //       });
+  //   } else {
+  //     console.log("⚪️ [0] No imageUri available for OCR");
+  //   }
+  // }, [imageUri]);
 
   // Handle image layout - this is crucial for proper crop positioning
   const handleImageLayout = (event: any) => {

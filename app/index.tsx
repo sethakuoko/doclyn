@@ -1,27 +1,62 @@
 // App.tsx
 import { ToastMessage } from "@/components/Toast";
-import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   ImageBackground,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
-  View,
   TextInput,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  ScrollView,
-  Platform,
-  Keyboard,
+  TouchableOpacity,
   TouchableWithoutFeedback,
+  View,
 } from "react-native";
 // import Toast from "react-native-toast-message";
 import { ApiService } from "../utils/api";
 import { checkLoginStatus, storeUserSession } from "../utils/storage";
 import { COLORS } from "./types";
+
+const isValidEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email.trim());
+};
+
+// Password validation function
+const isValidPassword = (
+  password: string
+): { isValid: boolean; message: string } => {
+  if (password.length < 8) {
+    return {
+      isValid: false,
+      message: "Password must be at least 8 characters long",
+    };
+  }
+  if (!/(?=.*[a-z])/.test(password)) {
+    return {
+      isValid: false,
+      message: "Password must contain at least one lowercase letter",
+    };
+  }
+  if (!/(?=.*[A-Z])/.test(password)) {
+    return {
+      isValid: false,
+      message: "Password must contain at least one uppercase letter",
+    };
+  }
+  if (!/(?=.*\d)/.test(password)) {
+    return {
+      isValid: false,
+      message: "Password must contain at least one number",
+    };
+  }
+  return { isValid: true, message: "" };
+};
 
 export default function App() {
   const router = useRouter();
@@ -29,6 +64,7 @@ export default function App() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [validationError, setValidationError] = useState("");
 
   useEffect(() => {
     const checkLogin = async () => {
@@ -50,25 +86,90 @@ export default function App() {
     action: "createAccount" | "signIn"
   ) => {
     setLoading(true);
+    setValidationError(""); // Clear any previous validation errors
+
     try {
       const response = await ApiService.authenticateUser({
         email,
         password,
         action,
       });
+
+      // Handle successful response
       if (response.success) {
         await storeUserSession(email);
-        ToastMessage("success", response.message);
+        ToastMessage(
+          "success",
+          action === "createAccount" ? "Account Created!" : "Login Successful!",
+          response.message || "Welcome to Doclyn"
+        );
         router.replace("/HomeScreen");
       } else {
-        ToastMessage("error", response.message);
+        // Handle failed response from server
+        const errorMessage = response.message || "Authentication failed";
+        setValidationError(errorMessage);
+        ToastMessage(
+          "error",
+          action === "createAccount"
+            ? "Account Creation Failed"
+            : "Login Failed",
+          errorMessage
+        );
       }
     } catch (error: any) {
-      console.error("📡 [Backend] Error sending login info:", error);
-      ToastMessage(
-        "error",
-        error.message || "An error occurred. Please try again later."
-      );
+      console.error("📡 [Backend] Error during authentication:", error);
+
+      // Handle different types of errors
+      let errorTitle = "";
+      let errorMessage = "";
+
+      if (error.name === "TypeError" && error.message.includes("fetch")) {
+        // Network error
+        errorTitle = "Connection Error";
+        errorMessage =
+          "Unable to connect to server. Please check your internet connection.";
+      } else if (error.status === 400) {
+        // Bad request
+        errorTitle =
+          action === "createAccount" ? "Account Creation Error" : "Login Error";
+        errorMessage = error.message || "Invalid email or password format";
+      } else if (error.status === 401) {
+        // Unauthorized
+        errorTitle = "Authentication Failed";
+        errorMessage =
+          action === "createAccount"
+            ? "Email already exists or invalid credentials"
+            : "Invalid email or password";
+      } else if (error.status === 403) {
+        // Forbidden
+        errorTitle = "Access Denied";
+        errorMessage = "Your account may be suspended or inactive";
+      } else if (error.status === 409) {
+        // Conflict (email already exists)
+        errorTitle = "Account Already Exists";
+        errorMessage =
+          "An account with this email already exists. Try logging in instead.";
+      } else if (error.status === 429) {
+        // Too many requests
+        errorTitle = "Too Many Attempts";
+        errorMessage = "Too many login attempts. Please try again later.";
+      } else if (error.status >= 500) {
+        // Server error
+        errorTitle = "Server Error";
+        errorMessage =
+          "Our servers are experiencing issues. Please try again later.";
+      } else {
+        // Generic error
+        errorTitle =
+          action === "createAccount"
+            ? "Account Creation Failed"
+            : "Login Failed";
+        errorMessage =
+          error.message || "An unexpected error occurred. Please try again.";
+      }
+
+      setValidationError(errorMessage);
+      ToastMessage("error", errorTitle, errorMessage);
     } finally {
       setLoading(false);
     }
@@ -76,6 +177,42 @@ export default function App() {
 
   const handleAuthAction = () => {
     Keyboard.dismiss();
+    setValidationError("");
+
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+
+    // Basic input checks
+    if (!trimmedEmail || !trimmedPassword) {
+      setValidationError("Please fill in all fields");
+      ToastMessage("error", "Please fill in all fields");
+      return;
+    }
+
+    // Email validation
+    if (!isValidEmail(trimmedEmail)) {
+      setValidationError("Please enter a valid email address");
+      ToastMessage("error", "Please enter a valid email address");
+      return;
+    }
+
+    // Password validation (only for sign up)
+    if (isSignUp) {
+      const passwordCheck = isValidPassword(trimmedPassword);
+      if (!passwordCheck.isValid) {
+        setValidationError(passwordCheck.message);
+        ToastMessage("error", passwordCheck.message);
+        return;
+      }
+    } else {
+      // For login, just check minimum length
+      if (trimmedPassword.length < 6) {
+        setValidationError("Password is too short");
+        ToastMessage("error", "Password is too short");
+        return;
+      }
+    }
+
     if (isSignUp) {
       // Handle Sign Up
       sendLoginInfoToBackend(email, password, "createAccount");
@@ -137,6 +274,11 @@ export default function App() {
                       value={password}
                       secureTextEntry
                     />
+
+                    {validationError ? (
+                      <Text style={styles.errorText}>{validationError}</Text>
+                    ) : null}
+
                     <TouchableOpacity
                       style={styles.signInButton}
                       onPress={handleAuthAction}
@@ -180,6 +322,13 @@ const styles = StyleSheet.create({
     flex: 1,
     width: "100%",
     height: "100%",
+  },
+  errorText: {
+    color: "#ff6b6b",
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: 10,
+    paddingHorizontal: 10,
   },
   keyboardAvoidingView: {
     flex: 1,

@@ -824,6 +824,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 16,
+    paddingBottom: 50,
     gap: 12,
   },
   cameraButton: {
