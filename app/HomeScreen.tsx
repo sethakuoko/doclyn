@@ -1,35 +1,33 @@
 import DocumentOptionsModal from "@/components/DocumentOptionsModal";
 import HomeViewModal from "@/components/HomeViewModal";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
+import * as Clipboard from "expo-clipboard";
+import * as FileSystem from "expo-file-system";
+import * as MediaLibrary from "expo-media-library";
 import { Stack, useRouter } from "expo-router";
-import React, { useState, useCallback, useEffect } from "react";
+import * as Sharing from "expo-sharing";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Image,
+  Linking,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator,
-  TextInput,
-  Linking,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import * as FileSystem from "expo-file-system";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect } from "@react-navigation/native";
-import { WebView } from "react-native-webview";
-import { COLORS } from "./types";
-import { getDefaultFilePrefix } from "../utils/storage";
-import * as Sharing from "expo-sharing";
-import * as MediaLibrary from "expo-media-library";
-import * as Print from "expo-print";
-import { Platform } from "react-native";
 import ViewShot from "react-native-view-shot";
-import { useRef } from "react";
+import { WebView } from "react-native-webview";
+import { getDefaultFilePrefix } from "../utils/storage";
 import type { SavedDocument } from "./types";
+import { COLORS } from "./types";
 
 // Utility to get display name based on current prefix rules
 const getDisplayName = (originalName: string, currentPrefix: string) => {
@@ -68,12 +66,15 @@ const DoclynHomeScreen: React.FC = () => {
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
   const [documents, setDocuments] = useState<SavedDocument[]>([]);
-  const [pdfPreviews, setPdfPreviews] = useState<{ [pdfPath: string]: string }>({});
+  const [pdfPreviews, setPdfPreviews] = useState<{ [pdfPath: string]: string }>(
+    {}
+  );
   const [itemModalVisible, setItemModalVisible] = useState(false);
-  const [selectedDocument, setSelectedDocument] = useState<SavedDocument | null>(null);
+  const [selectedDocument, setSelectedDocument] =
+    useState<SavedDocument | null>(null);
   const [defaultPrefix, setDefaultPrefix] = useState("");
   const [webViewHeight, setWebViewHeight] = useState(0);
-  
+
   // Search state
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -109,18 +110,36 @@ const DoclynHomeScreen: React.FC = () => {
     setSelectedDocs(new Set());
   };
 
+  const handleCopyText = async (doc: SavedDocument) => {
+    if (!doc.ocrText) {
+      Alert.alert("No OCR Text", "This document has no OCR text available.");
+      return;
+    }
+
+    try {
+      await Clipboard.setStringAsync(doc.ocrText);
+      Alert.alert("Copied!", "Text copied to clipboard.");
+    } catch (error) {
+      Alert.alert("Error", "Failed to copy text.");
+    }
+  };
+
   const handleDeleteSelected = async () => {
     const pdfPathsToDelete = Array.from(selectedDocs);
     let saved = await AsyncStorage.getItem("SAVED_PDFS");
     let docs = saved ? JSON.parse(saved) : [];
     docs = docs.filter((doc: any) => !pdfPathsToDelete.includes(doc.pdfPath));
     await AsyncStorage.setItem("SAVED_PDFS", JSON.stringify(docs));
-    setDocuments((docs) => docs.filter((doc) => !selectedDocs.has(doc.pdfPath)));
+    setDocuments((docs) =>
+      docs.filter((doc) => !selectedDocs.has(doc.pdfPath))
+    );
     handleCancelMultiSelect();
   };
 
   const handleShareSelected = async () => {
-    const docsToShare = documents.filter((doc) => selectedDocs.has(doc.pdfPath));
+    const docsToShare = documents.filter((doc) =>
+      selectedDocs.has(doc.pdfPath)
+    );
     if (docsToShare.length === 0) {
       handleCancelMultiSelect();
       return;
@@ -131,7 +150,9 @@ const DoclynHomeScreen: React.FC = () => {
       } else {
         await Sharing.shareAsync(docsToShare[0].pdfPath);
         if (docsToShare.length > 1) {
-          Alert.alert("Multiple file sharing is not supported on all platforms.");
+          Alert.alert(
+            "Multiple file sharing is not supported on all platforms."
+          );
         }
       }
     } catch (err) {
@@ -241,7 +262,10 @@ const DoclynHomeScreen: React.FC = () => {
     try {
       await Linking.openURL(doc.pdfPath);
     } catch (err) {
-      Alert.alert("No PDF Viewer", "No app found to view PDF files on this device.");
+      Alert.alert(
+        "No PDF Viewer",
+        "No app found to view PDF files on this device."
+      );
     }
   };
 
@@ -314,7 +338,7 @@ const DoclynHomeScreen: React.FC = () => {
   const renderDocumentItem = (doc: SavedDocument, idx: number) => {
     const isMultiSelect = selectedOption === "selectMultiple";
     const isSelected = selectedDocs.has(doc.pdfPath);
-    
+
     // Use the stored name as-is (don't modify existing names)
     const displayName = getDisplayName(doc.name, defaultPrefix);
 
@@ -384,14 +408,23 @@ const DoclynHomeScreen: React.FC = () => {
                 color={COLORS.textSecondary}
               />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleViewClick(doc.pdfPath)}>
+            <TouchableOpacity onPress={() => handleCopyText(doc)}>
+              <Ionicons
+                name="copy-outline"
+                size={20}
+                color={COLORS.textSecondary}
+              />
+            </TouchableOpacity>
+            {/* <TouchableOpacity onPress={() => handleViewClick(doc.pdfPath)}>
               <Ionicons
                 name="eye-outline"
                 size={20}
                 color={COLORS.textSecondary}
               />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleSaveAsJPEGClick(doc.pdfPath)}>
+            </TouchableOpacity> */}
+            <TouchableOpacity
+              onPress={() => handleSaveAsJPEGClick(doc.pdfPath)}
+            >
               <Ionicons
                 name="image-outline"
                 size={20}
@@ -659,11 +692,19 @@ const DoclynHomeScreen: React.FC = () => {
         document={selectedDocument}
         onDocumentChange={(updated, deleted) => {
           if (deleted) {
-            setDocuments((docs) => docs.filter((doc) => doc.pdfPath !== (selectedDocument?.pdfPath || "")));
+            setDocuments((docs) =>
+              docs.filter(
+                (doc) => doc.pdfPath !== (selectedDocument?.pdfPath || "")
+              )
+            );
             setSelectedDocument(null);
             setItemModalVisible(false);
           } else if (updated) {
-            setDocuments((docs) => docs.map((doc) => doc.pdfPath === updated.pdfPath ? updated : doc));
+            setDocuments((docs) =>
+              docs.map((doc) =>
+                doc.pdfPath === updated.pdfPath ? updated : doc
+              )
+            );
             setSelectedDocument(updated);
           }
         }}

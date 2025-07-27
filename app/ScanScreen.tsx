@@ -1,12 +1,12 @@
-import React, { useRef, useState } from "react";
-import { StyleSheet, View, Text, TouchableOpacity } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Stack } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { FlashMode } from "expo-camera";
+import { Stack } from "expo-router";
+import React, { useRef, useState } from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import AudioScreen from "../components/AudioScreen";
 import CameraScreen from "../components/CameraScreen";
 import TabNavigation from "../components/TabNavigation";
-import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "./types";
 
 const ScanScreen: React.FC = () => {
@@ -92,6 +92,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.backgroundSecondary,
   },
+
   appBarHomeButton: {
     width: 50,
     height: 50,

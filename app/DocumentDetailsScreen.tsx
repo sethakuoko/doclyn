@@ -1,14 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Clipboard from "expo-clipboard";
+import Constants from "expo-constants";
 import * as FileSystem from "expo-file-system";
 import * as Print from "expo-print";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import React, { useEffect, useState } from "react";
-import Constants from "expo-constants";
 import {
   Alert,
   Dimensions,
+  Image,
   Linking,
   Modal,
   Platform,
@@ -18,12 +20,8 @@ import {
   Text,
   TouchableOpacity,
   View,
-  Image,
 } from "react-native";
-import { WebView } from "react-native-webview";
 import { COLORS } from "./types";
-
-import { ToastMessage } from "../components/Toast";
 
 const { width, height } = Dimensions.get("window");
 
@@ -84,6 +82,8 @@ const DocumentDetailsScreen = () => {
   const [zoom, setZoom] = useState(1);
   const [webViewError, setWebViewError] = useState(false);
   const isExpoGo = Constants.appOwnership === "expo";
+  const [selectedDocument, setSelectedDocument] =
+    useState<SavedDocument | null>(null);
 
   // Get the actual document name from storage
   const [documentName, setDocumentName] = useState<string>("Document");
@@ -94,19 +94,20 @@ const DocumentDetailsScreen = () => {
         const saved = await AsyncStorage.getItem("SAVED_PDFS");
         if (saved) {
           const docs = JSON.parse(saved);
-          const found = docs.find((doc: any) => 
-            doc.pdfPath === pdfUri || doc.imagePath === imageUri
+          const found = docs.find(
+            (doc: any) => doc.pdfPath === pdfUri || doc.imagePath === imageUri
           );
           if (found && found.name) {
             // Use the stored name as-is (don't modify it)
             setDocumentName(found.name);
+            setSelectedDocument(found); // Add this line
           }
         }
       } catch (error) {
         console.error("Error getting document name:", error);
       }
     };
-    
+
     if (pdfUri || imageUri) {
       getDocumentName();
     }
@@ -242,8 +243,10 @@ const DocumentDetailsScreen = () => {
             docs = docs.filter((doc: any) => doc.pdfPath !== pdfUri);
             await AsyncStorage.setItem("SAVED_PDFS", JSON.stringify(docs));
             // Remove files from file system
-            if (pdfUri) await FileSystem.deleteAsync(pdfUri, { idempotent: true });
-            if (imageUri) await FileSystem.deleteAsync(imageUri, { idempotent: true });
+            if (pdfUri)
+              await FileSystem.deleteAsync(pdfUri, { idempotent: true });
+            if (imageUri)
+              await FileSystem.deleteAsync(imageUri, { idempotent: true });
             router.replace("/HomeScreen");
           } catch (err) {
             Alert.alert("Delete Failed", "Unable to delete this document.");
@@ -251,6 +254,20 @@ const DocumentDetailsScreen = () => {
         },
       },
     ]);
+  };
+
+  const handleCopyText = async () => {
+    if (!selectedDocument?.ocrText) {
+      Alert.alert("No OCR Text", "This document has no OCR text available.");
+      return;
+    }
+
+    try {
+      await Clipboard.setStringAsync(selectedDocument.ocrText);
+      Alert.alert("Text Copied", "OCR text has been copied to clipboard.");
+    } catch (error) {
+      Alert.alert("Copy Failed", "Failed to copy text to clipboard.");
+    }
   };
 
   // FIXED: Open PDF in external app
@@ -270,7 +287,9 @@ const DocumentDetailsScreen = () => {
           await Linking.openURL(pdfUri);
         } else {
           // If direct opening fails, try using file:// scheme
-          const fileUrl = pdfUri.startsWith('file://') ? pdfUri : `file://${pdfUri}`;
+          const fileUrl = pdfUri.startsWith("file://")
+            ? pdfUri
+            : `file://${pdfUri}`;
           await Linking.openURL(fileUrl);
         }
       } else {
@@ -357,12 +376,26 @@ const DocumentDetailsScreen = () => {
                   width: "100%",
                   height: "100%",
                   resizeMode: "contain",
-                  transform: [{ scale: zoom }]  // FIXED: Apply zoom transform
+                  transform: [{ scale: zoom }], // FIXED: Apply zoom transform
                 }}
               />
             ) : (
-              <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#000" }}>
-                <Text style={{ color: "white", textAlign: "center", marginBottom: 20, fontSize: 16 }}>
+              <View
+                style={{
+                  flex: 1,
+                  justifyContent: "center",
+                  alignItems: "center",
+                  backgroundColor: "#000",
+                }}
+              >
+                <Text
+                  style={{
+                    color: "white",
+                    textAlign: "center",
+                    marginBottom: 20,
+                    fontSize: 16,
+                  }}
+                >
                   Unable to display image.
                 </Text>
               </View>
@@ -414,14 +447,24 @@ const DocumentDetailsScreen = () => {
               style={styles.optionsItem}
               onPress={() => {
                 setMoreOptionsVisible(false);
+                handleCopyText();
+              }}
+            >
+              <Ionicons name="eye-outline" size={20} color="#222" />
+              <Text style={styles.optionsText}>Copy Text</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.optionsItem}
+              onPress={() => {
+                setMoreOptionsVisible(false);
                 handleViewInApp();
               }}
             >
               <Ionicons name="eye-outline" size={20} color="#222" />
               <Text style={styles.optionsText}>Open in another app</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.optionsItem} 
+            <TouchableOpacity
+              style={styles.optionsItem}
               onPress={() => {
                 setMoreOptionsVisible(false);
                 handleZoomIn();

@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
 import type { SavedDocument } from '../app/types';
 
 // Storage keys
@@ -114,7 +113,7 @@ export const getSaveOriginalsToPhotos = async (): Promise<boolean> => {
 // SavedDocument helpers
 export const getSavedDocuments = async () => {
   try {
-    const saved = await AsyncStorage.getItem('SAVED_PDFS');
+    const saved = await AsyncStorage.getItem("SAVED_PDFS");
     return saved ? JSON.parse(saved) : [];
   } catch (error) {
     console.error('Error getting saved documents:', error);
@@ -124,10 +123,10 @@ export const getSavedDocuments = async () => {
 
 export const saveDocument = async (doc: SavedDocument) => {
   try {
-    const saved = await AsyncStorage.getItem('SAVED_PDFS');
+    const saved = await AsyncStorage.getItem("SAVED_PDFS");
     let docs = saved ? JSON.parse(saved) : [];
     docs.push(doc);
-    await AsyncStorage.setItem('SAVED_PDFS', JSON.stringify(docs));
+    await AsyncStorage.setItem("SAVED_PDFS", JSON.stringify(docs));
   } catch (error) {
     console.error('Error saving document:', error);
     throw error;

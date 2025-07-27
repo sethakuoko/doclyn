@@ -1,22 +1,25 @@
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as FileSystem from "expo-file-system";
+import * as IntentLauncher from "expo-intent-launcher";
+import * as Linking from "expo-linking";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
+import React, { useState } from "react";
 import {
   Dimensions,
   Image,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
-  TextInput,
 } from "react-native";
-import * as Sharing from "expo-sharing";
-import * as Print from "expo-print";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useState } from "react";
-import { COLORS } from "../app/types";
 import type { SavedDocument } from "../app/types";
+import { COLORS } from "../app/types";
 
 interface DocumentOptionsModalProps {
   visible: boolean;
@@ -51,11 +54,13 @@ const DocumentOptionsModal: React.FC<DocumentOptionsModalProps> = ({
   // Get file size for details
   React.useEffect(() => {
     if (docState?.pdfPath) {
-      import("expo-file-system").then(FileSystem => {
-        FileSystem.getInfoAsync(docState.pdfPath).then(info => {
+      import("expo-file-system").then((FileSystem) => {
+        FileSystem.getInfoAsync(docState.pdfPath).then((info) => {
           if (info.exists && info.size) {
             const kb = info.size / 1024;
-            setFileSize(kb > 1024 ? `${(kb/1024).toFixed(2)} MB` : `${kb.toFixed(1)} KB`);
+            setFileSize(
+              kb > 1024 ? `${(kb / 1024).toFixed(2)} MB` : `${kb.toFixed(1)} KB`
+            );
           } else {
             setFileSize(null);
           }
@@ -111,6 +116,48 @@ const DocumentOptionsModal: React.FC<DocumentOptionsModalProps> = ({
     onClose();
   };
 
+  const handleOpenExternally = async () => {
+    if (!docState?.pdfPath) {
+      alert("No PDF file available");
+      return;
+    }
+
+    try {
+      // Verify file exists
+      const fileInfo = await FileSystem.getInfoAsync(docState.pdfPath);
+      if (!fileInfo.exists) {
+        alert("PDF file not found");
+        return;
+      }
+
+      if (Platform.OS === "android") {
+        // Android implementation
+        await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
+          data: docState.pdfPath,
+          flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+          type: "application/pdf",
+        });
+      } else {
+        // iOS implementation
+        const canOpen = await Linking.canOpenURL(docState.pdfPath);
+        if (canOpen) {
+          await Linking.openURL(docState.pdfPath);
+        } else {
+          alert("Please install a PDF viewer app from the App Store");
+        }
+      }
+    } catch (error: unknown) {
+      let errorMessage = "Failed to open PDF";
+      if (error instanceof Error) {
+        console.error("Error details:", error.message);
+        if (error.message.includes("No activity found")) {
+          errorMessage = "No PDF viewer app installed";
+        }
+      }
+      alert(errorMessage);
+    }
+  };
+
   // --- Menu Items ---
   const menuItems = [
     {
@@ -127,6 +174,11 @@ const DocumentOptionsModal: React.FC<DocumentOptionsModalProps> = ({
       icon: "print-outline",
       label: "Print",
       action: handlePrint,
+    },
+    {
+      icon: "open-outline",
+      label: "Open Externally",
+      action: handleOpenExternally,
     },
     {
       icon: "trash-outline",
@@ -203,11 +255,25 @@ const DocumentOptionsModal: React.FC<DocumentOptionsModalProps> = ({
           {/* View Details (expandable) */}
           {detailsExpanded && (
             <View style={styles.detailsSection}>
-              <Text style={styles.detailsItem}><Text style={styles.detailsLabel}>File type:</Text> PDF</Text>
-              <Text style={styles.detailsItem}><Text style={styles.detailsLabel}>File name:</Text> {docState.name}</Text>
-              <Text style={styles.detailsItem}><Text style={styles.detailsLabel}>File size:</Text> {fileSize || "-"}</Text>
-              <Text style={styles.detailsItem}><Text style={styles.detailsLabel}>File location:</Text> {docState.pdfPath || "-"}</Text>
-              <Text style={styles.detailsItem}><Text style={styles.detailsLabel}>Date of capture:</Text> {docState.date || "-"}</Text>
+              <Text style={styles.detailsItem}>
+                <Text style={styles.detailsLabel}>File type:</Text> PDF
+              </Text>
+              <Text style={styles.detailsItem}>
+                <Text style={styles.detailsLabel}>File name:</Text>{" "}
+                {docState.name}
+              </Text>
+              <Text style={styles.detailsItem}>
+                <Text style={styles.detailsLabel}>File size:</Text>{" "}
+                {fileSize || "-"}
+              </Text>
+              <Text style={styles.detailsItem}>
+                <Text style={styles.detailsLabel}>File location:</Text>{" "}
+                {docState.pdfPath || "-"}
+              </Text>
+              <Text style={styles.detailsItem}>
+                <Text style={styles.detailsLabel}>Date of capture:</Text>{" "}
+                {docState.date || "-"}
+              </Text>
             </View>
           )}
 
@@ -227,10 +293,16 @@ const DocumentOptionsModal: React.FC<DocumentOptionsModalProps> = ({
                 />
               </View>
               <View style={styles.renameActions}>
-                <TouchableOpacity onPress={() => setIsRenaming(false)} style={styles.renameCancelBtn}>
+                <TouchableOpacity
+                  onPress={() => setIsRenaming(false)}
+                  style={styles.renameCancelBtn}
+                >
                   <Text style={styles.renameCancelText}>Cancel</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={handleRename} style={styles.renameSaveBtn}>
+                <TouchableOpacity
+                  onPress={handleRename}
+                  style={styles.renameSaveBtn}
+                >
                   <Text style={styles.renameSaveText}>Save</Text>
                 </TouchableOpacity>
               </View>

@@ -1,36 +1,36 @@
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Clipboard from "expo-clipboard";
+import * as FileSystem from "expo-file-system";
 import * as ImageManipulator from "expo-image-manipulator";
+import * as Print from "expo-print";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Dimensions,
   Image,
+  Modal,
+  PanResponder,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
-  Alert,
-  ActivityIndicator,
-  Modal,
-  PanResponder,
-  TextInput,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
-import Svg, { Rect } from "react-native-svg";
+import { OCRStatus, processOCRParallel } from "../utils/ocr";
+import { getDefaultFilePrefix } from "../utils/storage";
 import Crop from "./editTools/Crop";
 import { handleDelete } from "./editTools/Delete";
+import { MARKUP_TOOLS } from "./editTools/Markup";
 import { handleResize } from "./editTools/Resize";
-import { handleCleanup } from "./editTools/Cleanup";
-import { handleMarkup, MARKUP_TOOLS } from "./editTools/Markup";
 import { handleRotate } from "./editTools/Rotate";
-import * as Print from "expo-print";
-import * as FileSystem from "expo-file-system";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "./types";
-import { getDefaultFilePrefix } from "../utils/storage";
 
 const { width, height } = Dimensions.get("window");
 
@@ -52,6 +52,7 @@ interface EditState {
   markupElements: any[];
   isProcessing: boolean;
   imageDimensions: { width: number; height: number } | null;
+  ocrStatus: OCRStatus;
 }
 
 // Helper to generate the display name for the file (no extension)
@@ -67,11 +68,11 @@ const EditPhotoScreen = () => {
   const { uri, generatedName, from } = useLocalSearchParams();
   const router = useRouter();
   const imageUri = typeof uri === "string" ? uri : undefined;
-  
+
   // Get the default prefix
   const [defaultPrefix, setDefaultPrefix] = useState("");
   useEffect(() => {
-    getDefaultFilePrefix().then(prefix => setDefaultPrefix(prefix || ""));
+    getDefaultFilePrefix().then((prefix) => setDefaultPrefix(prefix || ""));
   }, []);
 
   // Generate initial display name based on current prefix and timestamp
@@ -80,7 +81,7 @@ const EditPhotoScreen = () => {
     const uniqueNumber = Date.now().toString();
     setDisplayFileName(getDisplayFileName(defaultPrefix, uniqueNumber));
   }, [defaultPrefix]);
-  
+
   const [selectedTool, setSelectedTool] = useState<string | null>(null);
   const [editState, setEditState] = useState<EditState>({
     currentImageUri: imageUri || "",
@@ -91,8 +92,53 @@ const EditPhotoScreen = () => {
     markupElements: [],
     isProcessing: false,
     imageDimensions: null,
+    ocrStatus: { status: "idle" },
   });
-  
+
+  const handleCopyOCRText = async () => {
+    console.log("📋 Current OCR Status:", editState.ocrStatus);
+
+    if (editState.ocrStatus.status === "processing") {
+      console.log("⏳ OCR still processing");
+      Alert.alert(
+        "OCR Processing",
+        "Text extraction is still in progress. Please wait..."
+      );
+      return;
+    }
+
+    if (editState.ocrStatus.status === "failed") {
+      console.log("❌ OCR failed earlier:", editState.ocrStatus.error);
+      Alert.alert("OCR Failed", "Could not extract text from this image.");
+      return;
+    }
+
+    if (editState.ocrStatus.status === "success") {
+      console.log(
+        "ℹ️ OCR text length:",
+        editState.ocrStatus.result?.text?.length
+      );
+
+      if (editState.ocrStatus.result?.text) {
+        try {
+          await Clipboard.setStringAsync(editState.ocrStatus.result.text);
+          console.log("✅ Copied text to clipboard");
+          Toast.show({
+            type: "success",
+            text1: "Text Copied",
+            text2: "OCR text has been copied to your clipboard",
+          });
+          return;
+        } catch (error) {
+          console.error("⚠️ Clipboard error:", error);
+        }
+      }
+    }
+
+    console.log("⚠️ No valid OCR text available");
+    Alert.alert("No Text", "No OCR text available to copy.");
+  };
+
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showMarkupModal, setShowMarkupModal] = useState(false);
   const [selectedMarkupTool, setSelectedMarkupTool] = useState("draw");
@@ -107,13 +153,18 @@ const EditPhotoScreen = () => {
   });
   const [activeHandle, setActiveHandle] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [imageLayout, setImageLayout] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
-  
+  const [imageLayout, setImageLayout] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+
   // Store initial gesture positions to calculate relative movement
   const gestureState = useRef({
     initialX: 0,
     initialY: 0,
-    initialCropRect: { x: 0, y: 0, w: 0, h: 0 }
+    initialCropRect: { x: 0, y: 0, w: 0, h: 0 },
   });
 
   // 1. Add state for editing the image name
@@ -132,56 +183,113 @@ const EditPhotoScreen = () => {
   useEffect(() => {
     if (imageUri) {
       Image.getSize(imageUri, (width, height) => {
-        setEditState(prev => ({
+        setEditState((prev) => ({
           ...prev,
-          imageDimensions: { width, height }
+          imageDimensions: { width, height },
         }));
       });
     }
   }, [imageUri]);
 
+  useEffect(() => {
+    if (imageUri) {
+      console.log("🔵 [1] Starting OCR process for image:", imageUri);
+      setEditState((prev) => ({
+        ...prev,
+        ocrStatus: { status: "processing" },
+      }));
+
+      const startTime = Date.now();
+
+      processOCRParallel(imageUri)
+        .then((result) => {
+          console.log(`🟢 [2] OCR Success (${Date.now() - startTime}ms)`);
+          console.log(
+            "🟢 Extracted Text Preview:",
+            result.text.substring(0, 50) +
+              (result.text.length > 50 ? "..." : "")
+          );
+          console.log("🟢 Source:", result.source);
+
+          setEditState((prev) => ({
+            ...prev,
+            ocrStatus: {
+              status: "success",
+              result,
+            },
+          }));
+        })
+        .catch((error) => {
+          console.log(`🔴 [3] OCR Failed (${Date.now() - startTime}ms)`);
+          console.error("🔴 Error Details:", error);
+
+          setEditState((prev) => ({
+            ...prev,
+            ocrStatus: {
+              status: "failed",
+              error: error.message || "OCR processing failed",
+            },
+          }));
+        });
+    } else {
+      console.log("⚪️ [0] No imageUri available for OCR");
+    }
+  }, [imageUri]);
+
   // Handle image layout - this is crucial for proper crop positioning
   const handleImageLayout = (event: any) => {
-    const { x, y, width: layoutWidth, height: layoutHeight } = event.nativeEvent.layout;
+    const {
+      x,
+      y,
+      width: layoutWidth,
+      height: layoutHeight,
+    } = event.nativeEvent.layout;
     setImageLayout({ x, y, width: layoutWidth, height: layoutHeight });
-    
+
     // Initialize crop rect based on actual image layout dimensions
     if (layoutWidth > 0 && layoutHeight > 0) {
       const padding = 40;
       setCropRect({
         x: padding,
         y: padding,
-        w: layoutWidth - (padding * 2),
-        h: layoutHeight - (padding * 2),
+        w: layoutWidth - padding * 2,
+        h: layoutHeight - padding * 2,
       });
     }
   };
 
   // Handle tool selection
-  const handleToolSelect = useCallback((action: string) => {
-    if (action === "crop") {
+  const handleToolSelect = useCallback(
+    (action: string) => {
+      if (action === "crop") {
+        setSelectedTool(action);
+        setIsCropMode(true);
+        return;
+      }
+
       setSelectedTool(action);
-      setIsCropMode(true);
-      return;
-    }
-    
-    setSelectedTool(action);
-    
-    switch (action) {
-      case "retake":
-        handleRetake();
-        break;
-      case "resize":
-        handleResize(editState.currentImageUri, setEditState);
-        break;
-      case "delete":
-        handleDelete(router);
-        break;
-      case "rotate":
-        handleRotate(editState.currentImageUri, editState.rotation, setEditState);
-        break;
-    }
-  }, [editState]);
+
+      switch (action) {
+        case "retake":
+          handleRetake();
+          break;
+        case "resize":
+          handleResize(editState.currentImageUri, setEditState);
+          break;
+        case "delete":
+          handleDelete(router);
+          break;
+        case "rotate":
+          handleRotate(
+            editState.currentImageUri,
+            editState.rotation,
+            setEditState
+          );
+          break;
+      }
+    },
+    [editState]
+  );
 
   // Back button handler: always go to HomeScreen
   const handleBack = () => {
@@ -191,12 +299,11 @@ const EditPhotoScreen = () => {
   // Retake functionality: go to GalleryScreen or ScanScreen based on 'from' param
   const handleRetake = () => {
     console.log("handleRetake — from:", from);
-    Alert.alert(
-      "Retake Photo",
-      "Are you sure you want to retake this photo?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Retake", onPress: () => {
+    Alert.alert("Retake Photo", "Are you sure you want to retake this photo?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Retake",
+        onPress: () => {
           if (from === "gallery") {
             router.replace("/GalleryScreen");
           } else if (from === "camera") {
@@ -204,76 +311,90 @@ const EditPhotoScreen = () => {
           } else {
             router.replace("/HomeScreen");
           }
-          }
-        }
-      ]
-    );
+        },
+      },
+    ]);
   };
 
   // Improved PanResponders with proper gesture handling
-  const createHandlePanResponder = (handle: string) => PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
-    
-    onPanResponderGrant: (evt) => {
-      setActiveHandle(handle);
-      setIsDragging(true);
-      // Store initial positions for relative movement calculation
-      gestureState.current.initialX = evt.nativeEvent.pageX;
-      gestureState.current.initialY = evt.nativeEvent.pageY;
-      // FIXED: Use current cropRect state instead of storing outdated state
-      gestureState.current.initialCropRect = { ...cropRect };
-    },
-    
-    onPanResponderMove: (evt, gesture) => {
-      // Calculate movement delta from initial position
-      const deltaX = evt.nativeEvent.pageX - gestureState.current.initialX;
-      const deltaY = evt.nativeEvent.pageY - gestureState.current.initialY;
-      
-      setCropRect((prev) => {
-        const initial = gestureState.current.initialCropRect;
-        let { x, y, w, h } = { ...initial };
-        
-        const minSize = 80; // Minimum crop size
-        const maxSize = imageLayout ? { w: imageLayout.width, h: imageLayout.height } : { w: width, h: height };
-        
-        if (handle === "left") {
-          // Move left edge
-          const newX = Math.max(0, Math.min(initial.x + deltaX, initial.x + initial.w - minSize));
-          const newW = initial.w - (newX - initial.x);
-          x = newX;
-          w = newW;
-        } else if (handle === "right") {
-          // Move right edge
-          const newW = Math.max(minSize, Math.min(initial.w + deltaX, maxSize.w - initial.x));
-          w = newW;
-        } else if (handle === "top") {
-          // Move top edge
-          const newY = Math.max(0, Math.min(initial.y + deltaY, initial.y + initial.h - minSize));
-          const newH = initial.h - (newY - initial.y);
-          y = newY;
-          h = newH;
-        } else if (handle === "bottom") {
-          // Move bottom edge
-          const newH = Math.max(minSize, Math.min(initial.h + deltaY, maxSize.h - initial.y));
-          h = newH;
-        }
-        
-        // Ensure crop stays within image bounds
-        x = Math.max(0, Math.min(x, maxSize.w - w));
-        y = Math.max(0, Math.min(y, maxSize.h - h));
-        w = Math.min(w, maxSize.w - x);
-        h = Math.min(h, maxSize.h - y);
-        
-        return { x, y, w, h };
-      });
-    },
-    
-    onPanResponderRelease: () => {
-      setActiveHandle(null);
-      setIsDragging(false);
-    },
-  });
+  const createHandlePanResponder = (handle: string) =>
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+
+      onPanResponderGrant: (evt) => {
+        setActiveHandle(handle);
+        setIsDragging(true);
+        // Store initial positions for relative movement calculation
+        gestureState.current.initialX = evt.nativeEvent.pageX;
+        gestureState.current.initialY = evt.nativeEvent.pageY;
+        // FIXED: Use current cropRect state instead of storing outdated state
+        gestureState.current.initialCropRect = { ...cropRect };
+      },
+
+      onPanResponderMove: (evt, gesture) => {
+        // Calculate movement delta from initial position
+        const deltaX = evt.nativeEvent.pageX - gestureState.current.initialX;
+        const deltaY = evt.nativeEvent.pageY - gestureState.current.initialY;
+
+        setCropRect((prev) => {
+          const initial = gestureState.current.initialCropRect;
+          let { x, y, w, h } = { ...initial };
+
+          const minSize = 80; // Minimum crop size
+          const maxSize = imageLayout
+            ? { w: imageLayout.width, h: imageLayout.height }
+            : { w: width, h: height };
+
+          if (handle === "left") {
+            // Move left edge
+            const newX = Math.max(
+              0,
+              Math.min(initial.x + deltaX, initial.x + initial.w - minSize)
+            );
+            const newW = initial.w - (newX - initial.x);
+            x = newX;
+            w = newW;
+          } else if (handle === "right") {
+            // Move right edge
+            const newW = Math.max(
+              minSize,
+              Math.min(initial.w + deltaX, maxSize.w - initial.x)
+            );
+            w = newW;
+          } else if (handle === "top") {
+            // Move top edge
+            const newY = Math.max(
+              0,
+              Math.min(initial.y + deltaY, initial.y + initial.h - minSize)
+            );
+            const newH = initial.h - (newY - initial.y);
+            y = newY;
+            h = newH;
+          } else if (handle === "bottom") {
+            // Move bottom edge
+            const newH = Math.max(
+              minSize,
+              Math.min(initial.h + deltaY, maxSize.h - initial.y)
+            );
+            h = newH;
+          }
+
+          // Ensure crop stays within image bounds
+          x = Math.max(0, Math.min(x, maxSize.w - w));
+          y = Math.max(0, Math.min(y, maxSize.h - h));
+          w = Math.min(w, maxSize.w - x);
+          h = Math.min(h, maxSize.h - y);
+
+          return { x, y, w, h };
+        });
+      },
+
+      onPanResponderRelease: () => {
+        setActiveHandle(null);
+        setIsDragging(false);
+      },
+    });
 
   const leftHandle = useRef(createHandlePanResponder("left")).current;
   const rightHandle = useRef(createHandlePanResponder("right")).current;
@@ -288,35 +409,38 @@ const EditPhotoScreen = () => {
     }
 
     setEditState((prev) => ({ ...prev, isProcessing: true }));
-    
+
     try {
       // Calculate actual crop coordinates relative to the original image
-      const scaleX = editState.imageDimensions?.width ? editState.imageDimensions.width / imageLayout.width : 1;
-      const scaleY = editState.imageDimensions?.height ? editState.imageDimensions.height / imageLayout.height : 1;
-      
+      const scaleX = editState.imageDimensions?.width
+        ? editState.imageDimensions.width / imageLayout.width
+        : 1;
+      const scaleY = editState.imageDimensions?.height
+        ? editState.imageDimensions.height / imageLayout.height
+        : 1;
+
       const actualCrop = {
         originX: cropRect.x * scaleX,
         originY: cropRect.y * scaleY,
         width: cropRect.w * scaleX,
         height: cropRect.h * scaleY,
       };
-      
+
       const result = await ImageManipulator.manipulateAsync(
         editState.currentImageUri,
         [{ crop: actualCrop }],
         { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
       );
-      
+
       setEditState((prev) => ({
         ...prev,
         currentImageUri: result.uri,
         isProcessing: false,
       }));
-      
+
       setIsCropMode(false);
       setSelectedTool(null);
       Toast.show({ type: "success", text1: "Image cropped successfully" });
-      
     } catch (error) {
       console.error("Crop error:", error);
       setEditState((prev) => ({ ...prev, isProcessing: false }));
@@ -326,63 +450,60 @@ const EditPhotoScreen = () => {
 
   const handleSave = async () => {
     if (!editState.currentImageUri) {
-      Toast.show({
-        type: "error",
-        text1: "No image to save",
-      });
+      Toast.show({ type: "error", text1: "No image to save" });
       return;
     }
     setEditState((prev) => ({ ...prev, isProcessing: true }));
     try {
-      // Get current prefix and generate file name
       let currentPrefix = await getDefaultFilePrefix();
       const uniqueNumber = Date.now();
-      
+
       let baseName = "";
       if (currentPrefix && currentPrefix.trim() !== "") {
         baseName = `${currentPrefix.trim()}_${uniqueNumber}`;
       } else {
         baseName = `${uniqueNumber}`;
       }
-      
+
       const imageName = `${baseName}.jpg`;
       const imageDestPath = `${FileSystem.documentDirectory}${imageName}`;
-      await FileSystem.copyAsync({ from: editState.currentImageUri, to: imageDestPath });
+      await FileSystem.copyAsync({
+        from: editState.currentImageUri,
+        to: imageDestPath,
+      });
 
-      // Convert image to base64 for PDF
-      const base64 = await FileSystem.readAsStringAsync(imageDestPath, { encoding: FileSystem.EncodingType.Base64 });
-      const html = `
-        <html>
-          <body style='margin:0;padding:0;'>
-            <img src='data:image/jpeg;base64,${base64}' style='width:100vw;max-width:100%;height:auto;'/>
-          </body>
-        </html>
-      `;
+      const base64 = await FileSystem.readAsStringAsync(imageDestPath, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const html = `...`; // Keep existing HTML
+
       const { uri: pdfUri } = await Print.printToFileAsync({ html });
       const pdfName = `${baseName}.pdf`;
       const pdfDestPath = `${FileSystem.documentDirectory}${pdfName}`;
       await FileSystem.moveAsync({ from: pdfUri, to: pdfDestPath });
 
-      // Store both image and PDF paths in AsyncStorage
       let savedDocs = [];
       const existing = await AsyncStorage.getItem("SAVED_PDFS");
       if (existing) {
         savedDocs = JSON.parse(existing);
       }
-      savedDocs.push({ 
-        name: baseName, 
-        imagePath: imageDestPath, 
-        pdfPath: pdfDestPath, 
-        date: new Date().toISOString() 
+
+      savedDocs.push({
+        name: baseName,
+        imagePath: imageDestPath,
+        pdfPath: pdfDestPath,
+        date: new Date().toISOString(),
+        ocrText:
+          editState.ocrStatus.status === "success"
+            ? editState.ocrStatus.result?.text
+            : undefined,
       });
+
       await AsyncStorage.setItem("SAVED_PDFS", JSON.stringify(savedDocs));
       router.back();
     } catch (error) {
       console.error("Save error:", error);
-      Toast.show({
-        type: "error",
-        text1: "Failed to save document",
-      });
+      Toast.show({ type: "error", text1: "Failed to save document" });
     } finally {
       setEditState((prev) => ({ ...prev, isProcessing: false }));
     }
@@ -392,7 +513,7 @@ const EditPhotoScreen = () => {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.container}>
         <Stack.Screen options={{ headerShown: false }} />
-        
+
         {/* Top Bar */}
         <View style={styles.topBar}>
           <TouchableOpacity onPress={handleBack}>
@@ -407,7 +528,7 @@ const EditPhotoScreen = () => {
                 style={{
                   color: COLORS.textPrimary,
                   fontSize: 18,
-                  fontWeight: '600',
+                  fontWeight: "600",
                   backgroundColor: COLORS.backgroundSecondary,
                   borderRadius: 6,
                   paddingHorizontal: 8,
@@ -431,6 +552,13 @@ const EditPhotoScreen = () => {
               />
             </TouchableOpacity>
           </View>
+
+          <TouchableOpacity
+            style={styles.appBarCopyButton}
+            onPress={handleCopyOCRText}
+          >
+            <Ionicons name="copy" size={24} color={COLORS.brand} />
+          </TouchableOpacity>
         </View>
 
         {/* Main Content: Image with overlay */}
@@ -472,7 +600,17 @@ const EditPhotoScreen = () => {
         </View>
 
         {/* Bottom controls: Save PDF, toolbar, and filter bar stacked vertically */}
-        <View style={{ width: '100%', position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'column-reverse', zIndex: 50 }}>
+        <View
+          style={{
+            width: "100%",
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            flexDirection: "column-reverse",
+            zIndex: 50,
+          }}
+        >
           {/* Save PDF button at the top of the stack */}
           <View style={styles.bottomButtons}>
             <TouchableOpacity style={styles.savePdfButton} onPress={handleSave}>
@@ -538,14 +676,19 @@ const EditPhotoScreen = () => {
                     key={tool.type}
                     style={[
                       styles.markupTool,
-                      selectedMarkupTool === tool.type && styles.markupToolSelected,
+                      selectedMarkupTool === tool.type &&
+                        styles.markupToolSelected,
                     ]}
                     onPress={() => setSelectedMarkupTool(tool.type)}
                   >
                     <Ionicons
                       name={tool.icon as any}
                       size={24}
-                      color={selectedMarkupTool === tool.type ? COLORS.textPrimary : COLORS.textSecondary}
+                      color={
+                        selectedMarkupTool === tool.type
+                          ? COLORS.textPrimary
+                          : COLORS.textSecondary
+                      }
                     />
                     <Text style={styles.markupToolLabel}>{tool.label}</Text>
                   </TouchableOpacity>
@@ -553,7 +696,14 @@ const EditPhotoScreen = () => {
               </View>
               <View style={styles.colorPicker}>
                 <Text style={styles.colorPickerTitle}>Color:</Text>
-                {["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF", "#00FFFF"].map((color) => (
+                {[
+                  "#FF0000",
+                  "#00FF00",
+                  "#0000FF",
+                  "#FFFF00",
+                  "#FF00FF",
+                  "#00FFFF",
+                ].map((color) => (
                   <TouchableOpacity
                     key={color}
                     style={[
@@ -578,6 +728,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  appBarCopyButton: {
+    width: 50,
+    height: 50,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: 25,
+    marginLeft: 8,
   },
   topBar: {
     flexDirection: "row",
