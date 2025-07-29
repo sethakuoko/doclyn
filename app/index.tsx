@@ -17,7 +17,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
-// import Toast from "react-native-toast-message";
+import Toast from "react-native-toast-message";
 import { ApiService } from "../utils/api";
 import { checkLoginStatus, storeUserSession } from "../utils/storage";
 import { COLORS } from "./types";
@@ -64,7 +64,6 @@ export default function App() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
-  const [validationError, setValidationError] = useState("");
 
   useEffect(() => {
     const checkLogin = async () => {
@@ -86,34 +85,41 @@ export default function App() {
     action: "createAccount" | "signIn"
   ) => {
     setLoading(true);
-    setValidationError(""); // Clear any previous validation errors
 
     try {
-      const response = await ApiService.authenticateUser({
-        email,
-        password,
-        action,
+      // Create a timeout promise that rejects after 10 seconds
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error("TIMEOUT"));
+        }, 10000); // 10 seconds
       });
+
+      // Race between the authentication request and timeout
+      const response = (await Promise.race([
+        ApiService.authenticateUser({
+          email,
+          password,
+          action,
+        }),
+        timeoutPromise,
+      ])) as any; // Type assertion since we know it will be the API response if not timeout
 
       // Handle successful response
       if (response.success) {
         await storeUserSession(email);
         ToastMessage(
           "success",
-          action === "createAccount" ? "Account Created!" : "Login Successful!",
-          response.message || "Welcome to Doclyn"
+          action === "createAccount" ? "Account Created!" : "Welcome Back!",
+          action === "createAccount" ? "You're all set!" : "Login successful"
         );
         router.replace("/HomeScreen");
       } else {
         // Handle failed response from server
-        const errorMessage = response.message || "Authentication failed";
-        setValidationError(errorMessage);
+        const errorMessage = response.message || "Something went wrong";
         ToastMessage(
           "error",
-          action === "createAccount"
-            ? "Account Creation Failed"
-            : "Login Failed",
-          errorMessage
+          action === "createAccount" ? "Signup Failed" : "Login Failed",
+          errorMessage.length > 40 ? "Please try again" : errorMessage
         );
       }
     } catch (error: any) {
@@ -123,52 +129,51 @@ export default function App() {
       let errorTitle = "";
       let errorMessage = "";
 
-      if (error.name === "TypeError" && error.message.includes("fetch")) {
+      // Check for timeout error first
+      if (error.message === "TIMEOUT") {
+        errorTitle = "Connection Timeout";
+        errorMessage = "Request took too long. Try again.";
+      } else if (
+        error.name === "TypeError" &&
+        error.message.includes("fetch")
+      ) {
         // Network error
-        errorTitle = "Connection Error";
-        errorMessage =
-          "Unable to connect to server. Please check your internet connection.";
+        errorTitle = "No Internet";
+        errorMessage = "Check your connection and retry.";
       } else if (error.status === 400) {
         // Bad request
-        errorTitle =
-          action === "createAccount" ? "Account Creation Error" : "Login Error";
-        errorMessage = error.message || "Invalid email or password format";
+        errorTitle = "Invalid Request";
+        errorMessage = "Please check your details.";
       } else if (error.status === 401) {
         // Unauthorized
-        errorTitle = "Authentication Failed";
+        errorTitle = "Access Denied";
         errorMessage =
           action === "createAccount"
-            ? "Email already exists or invalid credentials"
-            : "Invalid email or password";
+            ? "Email might already exist"
+            : "Wrong email or password";
       } else if (error.status === 403) {
         // Forbidden
-        errorTitle = "Access Denied";
-        errorMessage = "Your account may be suspended or inactive";
+        errorTitle = "Account Blocked";
+        errorMessage = "Contact support for help.";
       } else if (error.status === 409) {
         // Conflict (email already exists)
-        errorTitle = "Account Already Exists";
-        errorMessage =
-          "An account with this email already exists. Try logging in instead.";
+        errorTitle = "Email Taken";
+        errorMessage = "Try logging in instead.";
       } else if (error.status === 429) {
         // Too many requests
         errorTitle = "Too Many Attempts";
-        errorMessage = "Too many login attempts. Please try again later.";
+        errorMessage = "Wait a moment and try again.";
       } else if (error.status >= 500) {
         // Server error
         errorTitle = "Server Error";
-        errorMessage =
-          "Our servers are experiencing issues. Please try again later.";
+        errorMessage = "Our servers are busy. Try later.";
       } else {
         // Generic error
         errorTitle =
-          action === "createAccount"
-            ? "Account Creation Failed"
-            : "Login Failed";
-        errorMessage =
-          error.message || "An unexpected error occurred. Please try again.";
+          action === "createAccount" ? "Signup Failed" : "Login Failed";
+        errorMessage = "Something went wrong. Try again.";
       }
 
-      setValidationError(errorMessage);
       ToastMessage("error", errorTitle, errorMessage);
     } finally {
       setLoading(false);
@@ -177,22 +182,27 @@ export default function App() {
 
   const handleAuthAction = () => {
     Keyboard.dismiss();
-    setValidationError("");
 
     const trimmedEmail = email.trim();
     const trimmedPassword = password.trim();
 
+    console.log("🔍 [DEBUG] Starting validation...");
+
     // Basic input checks
     if (!trimmedEmail || !trimmedPassword) {
-      setValidationError("Please fill in all fields");
-      ToastMessage("error", "Please fill in all fields");
+      console.log("🔍 [DEBUG] Empty fields validation failed");
+      ToastMessage(
+        "error",
+        "Missing Information",
+        "Please fill in both fields"
+      );
       return;
     }
 
     // Email validation
     if (!isValidEmail(trimmedEmail)) {
-      setValidationError("Please enter a valid email address");
-      ToastMessage("error", "Please enter a valid email address");
+      console.log("🔍 [DEBUG] Email validation failed");
+      ToastMessage("error", "Invalid Email", "Please enter a valid email");
       return;
     }
 
@@ -200,18 +210,36 @@ export default function App() {
     if (isSignUp) {
       const passwordCheck = isValidPassword(trimmedPassword);
       if (!passwordCheck.isValid) {
-        setValidationError(passwordCheck.message);
-        ToastMessage("error", passwordCheck.message);
+        console.log(
+          "🔍 [DEBUG] Password validation failed:",
+          passwordCheck.message
+        );
+        // Custom shorter password messages
+        let shortMessage = "";
+        if (passwordCheck.message.includes("8 characters")) {
+          shortMessage = "Password must be 8+ characters";
+        } else if (passwordCheck.message.includes("lowercase")) {
+          shortMessage = "Add a lowercase letter";
+        } else if (passwordCheck.message.includes("uppercase")) {
+          shortMessage = "Add an uppercase letter";
+        } else if (passwordCheck.message.includes("number")) {
+          shortMessage = "Add a number";
+        } else {
+          shortMessage = "Password requirements not met";
+        }
+        ToastMessage("error", "Weak Password", shortMessage);
         return;
       }
     } else {
       // For login, just check minimum length
       if (trimmedPassword.length < 6) {
-        setValidationError("Password is too short");
-        ToastMessage("error", "Password is too short");
+        console.log("🔍 [DEBUG] Password too short");
+        ToastMessage("error", "Invalid Password", "Password too short");
         return;
       }
     }
+
+    console.log("🔍 [DEBUG] All validations passed, proceeding with auth");
 
     if (isSignUp) {
       // Handle Sign Up
@@ -275,10 +303,6 @@ export default function App() {
                       secureTextEntry
                     />
 
-                    {validationError ? (
-                      <Text style={styles.errorText}>{validationError}</Text>
-                    ) : null}
-
                     <TouchableOpacity
                       style={styles.signInButton}
                       onPress={handleAuthAction}
@@ -307,7 +331,7 @@ export default function App() {
           </TouchableWithoutFeedback>
         </KeyboardAvoidingView>
       </ImageBackground>
-      {/* <Toast /> */}
+      <Toast />
     </SafeAreaView>
   );
 }
@@ -322,13 +346,6 @@ const styles = StyleSheet.create({
     flex: 1,
     width: "100%",
     height: "100%",
-  },
-  errorText: {
-    color: "#ff6b6b",
-    fontSize: 14,
-    textAlign: "center",
-    marginBottom: 10,
-    paddingHorizontal: 10,
   },
   keyboardAvoidingView: {
     flex: 1,
