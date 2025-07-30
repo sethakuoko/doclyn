@@ -8,11 +8,7 @@
     "scheme": "doclyn",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "platforms": [
-      "ios",
-      "android",
-      "web"
-    ],
+    "platforms": ["ios", "android", "web"],
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,
@@ -21,18 +17,7 @@
         "NSPhotoLibraryAddUsageDescription": "This app needs permission to save scanned documents to your photo library."
       }
     },
-    "extra": {
-      
-      "router": {},
-      "eas": {
-        "projectId": "2448f72c-02bf-4f09-ab92-d58979a2ff22"
-      }
-    },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
       "edgeToEdgeEnabled": true,
       "permissions": [
         "READ_MEDIA_IMAGES",
@@ -48,6 +33,12 @@
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "2448f72c-02bf-4f09-ab92-d58979a2ff22"
+      }
+    },
     "plugins": [
       "expo-router",
       "expo-apple-authentication",
@@ -62,7 +53,15 @@
       ],
       "expo-web-browser",
       "expo-media-library",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

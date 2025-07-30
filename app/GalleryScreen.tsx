@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from "react";
-
 import * as ImagePicker from "expo-image-picker";
 import * as MediaLibrary from "expo-media-library";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
   FlatList,
   Image,
@@ -14,49 +13,52 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "./types";
-const { albumId, title } = useLocalSearchParams();
 
-// This screen will display photos from the media library
-// and allow users to select a photo for scanning or previewing.
-// It will also have a button to open the albums screen.
-// Make sure to create the AlbumScreen as well to handle album navigation.
 const GalleryScreen = () => {
   const { albumId, title } = useLocalSearchParams();
   const [photos, setPhotos] = useState<MediaLibrary.Asset[]>([]);
   const router = useRouter();
 
   const getPhotos = async () => {
-    const { status } = await MediaLibrary.requestPermissionsAsync();
-    if (status !== "granted") {
-      alert("Permission to access media library is required.");
-      return;
-    }
+    try {
+      const { status: mediaLibStatus } =
+        await MediaLibrary.requestPermissionsAsync();
+      const { status: pickerStatus } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-    const options = {
-      mediaType: MediaLibrary.MediaType.photo,
-      sortBy: [["creationTime", false] as [MediaLibrary.SortByKey, boolean]],
-      first: 100,
-    };
+      if (mediaLibStatus !== "granted" || pickerStatus !== "granted") {
+        alert("Permission to access the media library is required.");
+        return;
+      }
 
-    let media;
-    if (albumId) {
-      media = await MediaLibrary.getAssetsAsync({
-        ...options,
-        album: albumId as string,
-      } as any); // 'album' is not in the type, so we cast as any
-    } else {
-      media = await MediaLibrary.getAssetsAsync(options);
+      const options = {
+        mediaType: MediaLibrary.MediaType.photo,
+        sortBy: [["creationTime", false] as [MediaLibrary.SortByKey, boolean]],
+        first: 100,
+      };
+
+      const media = albumId
+        ? await MediaLibrary.getAssetsAsync({
+            ...options,
+            album: albumId as string,
+          } as any)
+        : await MediaLibrary.getAssetsAsync(options);
+
+      setPhotos(media.assets);
+    } catch (error) {
+      console.error("Error accessing media library:", error);
+      alert("Failed to access media library. Please check app permissions.");
     }
-    setPhotos(media.assets);
   };
 
   useEffect(() => {
     getPhotos();
   }, []);
 
-  const openAlbums = async () => {
-    router.push("/AlbumScreen"); // Create this screen too
+  const openAlbums = () => {
+    router.push("/AlbumScreen");
   };
+
   const openSystemImagePicker = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
@@ -79,22 +81,22 @@ const GalleryScreen = () => {
       });
     }
   };
+
   const RenderMediaItem = ({ item }: { item: MediaLibrary.Asset }) => {
     const [uri, setUri] = useState<string | null>(null);
-    const router = useRouter();
 
     useEffect(() => {
       let active = true;
 
       if (Platform.OS === "android") {
-        setUri(item.uri); // Android URIs are fine
+        setUri(item.uri);
         return;
       }
 
       (async () => {
         const info = await MediaLibrary.getAssetInfoAsync(item.id);
         if (info?.localUri && active) {
-          setUri(info.localUri); // iOS fix
+          setUri(info.localUri);
         }
       })();
 
@@ -103,7 +105,7 @@ const GalleryScreen = () => {
       };
     }, []);
 
-    if (!uri) return null; // Skip rendering if URI not yet resolved
+    if (!uri) return null;
 
     return (
       <TouchableOpacity
@@ -132,7 +134,9 @@ const GalleryScreen = () => {
     <SafeAreaView style={styles.container} edges={["top"]}>
       <Stack.Screen options={{ headerShown: false }} />
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
-      <View style={{ flex: 1, backgroundColor: COLORS.background, padding: 10 }}>
+      <View
+        style={{ flex: 1, backgroundColor: COLORS.background, padding: 10 }}
+      >
         <Text style={{ color: COLORS.brand, fontSize: 20, marginBottom: 10 }}>
           {title ? `Album: ${title}` : "Your Photos"}
         </Text>

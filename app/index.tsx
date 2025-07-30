@@ -1,9 +1,9 @@
-// App.tsx
 import { ToastMessage } from "@/components/Toast";
 import { Stack, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Dimensions,
   ImageBackground,
   Keyboard,
   KeyboardAvoidingView,
@@ -20,7 +20,8 @@ import {
 import Toast from "react-native-toast-message";
 import { ApiService } from "../utils/api";
 import { checkLoginStatus, storeUserSession } from "../utils/storage";
-import { COLORS } from "./types";
+
+const { width, height } = Dimensions.get("window");
 
 const isValidEmail = (email: string): boolean => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -58,7 +59,7 @@ const isValidPassword = (
   return { isValid: true, message: "" };
 };
 
-export default function App() {
+export default function LoginScreen() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -87,22 +88,11 @@ export default function App() {
     setLoading(true);
 
     try {
-      // Create a timeout promise that rejects after 10 seconds
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
-          reject(new Error("TIMEOUT"));
-        }, 10000); // 10 seconds
+      const response = await ApiService.authenticateUser({
+        email,
+        password,
+        action,
       });
-
-      // Race between the authentication request and timeout
-      const response = (await Promise.race([
-        ApiService.authenticateUser({
-          email,
-          password,
-          action,
-        }),
-        timeoutPromise,
-      ])) as any; // Type assertion since we know it will be the API response if not timeout
 
       // Handle successful response
       if (response.success) {
@@ -129,14 +119,7 @@ export default function App() {
       let errorTitle = "";
       let errorMessage = "";
 
-      // Check for timeout error first
-      if (error.message === "TIMEOUT") {
-        errorTitle = "Connection Timeout";
-        errorMessage = "Request took too long. Try again.";
-      } else if (
-        error.name === "TypeError" &&
-        error.message.includes("fetch")
-      ) {
+      if (error.name === "TypeError" && error.message.includes("fetch")) {
         // Network error
         errorTitle = "No Internet";
         errorMessage = "Check your connection and retry.";
@@ -258,14 +241,11 @@ export default function App() {
         style={styles.backgroundImage}
         resizeMode="cover"
       >
-        <KeyboardAvoidingView
-          style={styles.keyboardAvoidingView}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
-        >
-          <TouchableWithoutFeedback
-            onPress={Keyboard.dismiss}
-            accessible={false}
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <KeyboardAvoidingView
+            style={styles.keyboardAvoidingView}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            keyboardVerticalOffset={0}
           >
             <ScrollView
               style={styles.scrollView}
@@ -273,6 +253,12 @@ export default function App() {
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
               bounces={false}
+              // Add these props to reduce flickering
+              scrollEventThrottle={16}
+              maintainVisibleContentPosition={{
+                minIndexForVisible: 0,
+                autoscrollToTopThreshold: 10,
+              }}
             >
               <View style={styles.overlay}>
                 <View style={styles.content}>
@@ -288,19 +274,24 @@ export default function App() {
                     <TextInput
                       style={styles.input}
                       placeholder="Email"
-                      placeholderTextColor="#ccc"
+                      placeholderTextColor="rgba(255, 255, 255, 0.8)"
                       onChangeText={setEmail}
                       value={email}
                       keyboardType="email-address"
                       autoCapitalize="none"
+                      autoComplete="email"
+                      textContentType="emailAddress"
                     />
                     <TextInput
                       style={styles.input}
                       placeholder="Password"
-                      placeholderTextColor="#ccc"
+                      placeholderTextColor="rgba(255, 255, 255, 0.8)"
                       onChangeText={setPassword}
                       value={password}
                       secureTextEntry
+                      autoCapitalize="none"
+                      autoComplete="password"
+                      textContentType={isSignUp ? "newPassword" : "password"}
                     />
 
                     <TouchableOpacity
@@ -328,8 +319,8 @@ export default function App() {
                 </View>
               </View>
             </ScrollView>
-          </TouchableWithoutFeedback>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </TouchableWithoutFeedback>
       </ImageBackground>
       <Toast />
     </SafeAreaView>
@@ -339,13 +330,11 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    height: "100%",
-    backgroundColor: COLORS.background,
   },
   backgroundImage: {
     flex: 1,
-    width: "100%",
-    height: "100%",
+    width: width,
+    height: height,
   },
   keyboardAvoidingView: {
     flex: 1,
@@ -355,76 +344,85 @@ const styles = StyleSheet.create({
   },
   scrollViewContent: {
     flexGrow: 1,
-    minHeight: "100%", // Ensures content takes full height
+    minHeight: height, // Ensure minimum height
   },
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "flex-start",
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 40,
-    minHeight: "100%", // Ensures overlay takes full height
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    minHeight: height, // Ensure consistent height
   },
   content: {
     flex: 1,
-    justifyContent: "space-between", // Changed to space-between for better distribution
-    minHeight: 600, // Minimum height to ensure scrollability
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    minHeight: height * 0.8, // Minimum height to prevent collapse
   },
   headerSection: {
     alignItems: "center",
-    marginTop: 15,
-    marginBottom: 50, // Reduced margin
+    marginBottom: 60,
+    paddingHorizontal: 20,
   },
   welcomeTitle: {
     fontSize: 32,
     fontWeight: "bold",
-    color: "#FFF",
+    color: "#FFFFFF",
     textAlign: "center",
-    marginBottom: 10,
-    letterSpacing: 0.5,
+    marginBottom: 20,
+    textShadowColor: "rgba(0, 0, 0, 0.3)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   subtitle: {
     fontSize: 16,
-    color: "#FFF",
+    color: "#FFFFFF",
     textAlign: "center",
-    lineHeight: 24,
-    opacity: 0.9,
-    paddingHorizontal: 10,
-    fontWeight: "300",
+    lineHeight: 22,
+    textShadowColor: "rgba(0, 0, 0, 0.3)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   signInSection: {
-    marginBottom: 50, // Reduced margin
-    marginTop: "auto", // Push to bottom of available space
+    width: "100%",
+    maxWidth: 320,
   },
   input: {
-    height: 50,
+    height: 56,
     backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 25,
-    paddingHorizontal: 20,
-    color: "#fff",
+    borderRadius: 28,
+    paddingHorizontal: 24,
+    fontSize: 16,
+    color: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
     marginBottom: 16,
   },
   signInButton: {
-    flexDirection: "row",
-    alignItems: "center",
+    height: 56,
+    backgroundColor: "#14B8A6", // Teal-500
+    borderRadius: 28,
     justifyContent: "center",
-    height: 50,
-    borderRadius: 25,
-    marginBottom: 16,
-    paddingHorizontal: 20,
-    backgroundColor: COLORS.brand,
-    borderWidth: 1,
-    borderColor: COLORS.brand,
+    alignItems: "center",
+    marginTop: 8,
+    marginBottom: 24,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   buttonText: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#FFF",
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
   toggleText: {
-    color: "#FFF",
+    fontSize: 14,
+    color: "#FFFFFF",
     textAlign: "center",
-    marginTop: 10,
+    textDecorationLine: "underline",
   },
 });
